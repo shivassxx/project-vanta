@@ -1,4 +1,5 @@
 import type { EvidenceItem, Vec2 } from "@vanta/shared";
+import type { ConversationDef } from "../conversations/types";
 
 /** SERVER-ONLY. Physical evidence in the CASE_001 greybox and what it says once examined. */
 export interface EvidenceSpotDef {
@@ -9,10 +10,13 @@ export interface EvidenceSpotDef {
   position: Vec2;
   /** Picked up = removed from the world for everyone once found. */
   pickUp: boolean;
-  item: EvidenceItem;
+  /** Plain evidence found by examining. Omitted when `interaction` is used instead. */
+  item?: EvidenceItem;
+  /** Examining opens this conversation-style interaction instead of handing over an item. */
+  interaction?: string;
 }
 
-export const CASE_001_EVIDENCE: readonly EvidenceSpotDef[] = [
+export const CASE_001_EVIDENCE_SPOTS_BASE: readonly EvidenceSpotDef[] = [
   {
     spotId: "spot_cafe_table",
     label: "Receipt on a café table",
@@ -51,3 +55,37 @@ export const CASE_001_EVIDENCE: readonly EvidenceSpotDef[] = [
   },
 ];
 
+/** Physical DVR access: the believable way in for people without authority. */
+export const CASE_001_DVR_SPOT: EvidenceSpotDef = {
+  spotId: "spot_cafe_backdoor",
+  label: "Service door behind the café",
+  position: { x: 11.3, z: 4.5 },
+  pickUp: false,
+  interaction: "dvr_cafe",
+};
+
+export const DVR_INTERACTION: ConversationDef = {
+  id: "dvr_cafe",
+  start: "start",
+  nodes: {
+    start: {
+      line: "A locked service door. Through the gap: a recorder blinking on a shelf, wired to the café cameras.",
+      options: [
+        { id: "break", text: "Force the lock and copy this morning's footage. [crime]", next: "copied" },
+        {
+          id: "port",
+          text: "You know this kind of recorder. Reach its maintenance port through the gap. [crime, IT background]",
+          requires: { profession: ["it_worker"] },
+          next: "copied",
+        },
+        { id: "leave", text: "Leave it." },
+      ],
+    },
+    copied: {
+      line: "A few minutes later you have this morning's footage on your phone.",
+      options: [{ id: "watch", text: "Watch it.", gives: "case001.ev.cafeCctv" }],
+    },
+  },
+};
+
+export const CASE_001_EVIDENCE: readonly EvidenceSpotDef[] = [...CASE_001_EVIDENCE_SPOTS_BASE, CASE_001_DVR_SPOT];

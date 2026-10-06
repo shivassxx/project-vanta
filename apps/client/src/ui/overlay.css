@@ -28,3 +28,4 @@
 .vt-dialogue { position: fixed; left: 50%; bottom: 60px; transform: translateX(-50%); width: min(620px, 90vw); background: rgba(10, 12, 15, 0.92); border: 1px solid #2c333a; padding: 10px 12px; font: 13px monospace; color: #d5dde4; display: flex; flex-direction: column; gap: 4px; }
 .vt-dialogue .vt-line { margin: 4px 0 6px; }
 .vt-dialogue button { text-align: left; font: 12px monospace; background: #1d2329; color: #d5dde4; border: 1px solid #3a434b; padding: 4px 8px; cursor: pointer; }
+.vt-thumb { width: 192px; height: 108px; display: block; margin: 4px 0; border: 1px solid #3a434b; }

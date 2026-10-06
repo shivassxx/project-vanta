@@ -14,6 +14,7 @@ import {
   MSG_ABILITIES,
   MSG_DIALOGUE,
   MSG_USE_ABILITY,
+  MSG_TAKE_PHOTO,
   type AbilityView,
   MSG_TALK,
   MSG_TALK_CHOICE,
@@ -146,6 +147,12 @@ connect()
     r.onMessage(MSG_KNOWLEDGE, (knowledge: KnownInfo[]) => session.update({ knowledge }));
     r.onMessage(MSG_EVIDENCE, (evidence: FoundEvidence[]) => {
       const before = session.get().evidence.length;
+      const known = new Set(session.get().evidence.map((e) => e.item.id));
+      const newPhoto = evidence.find((e) => e.item.kind === "photo" && !known.has(e.item.id));
+      if (newPhoto && pendingThumb) {
+        session.update({ photoThumbs: { ...session.get().photoThumbs, [newPhoto.item.id]: pendingThumb } });
+        pendingThumb = undefined;
+      }
       session.update({ evidence });
       const latest = evidence.at(-1);
       if (evidence.length > before && latest) setStatus(`Found: ${latest.item.title}`);
@@ -169,6 +176,19 @@ let facing = yaw;
 let rig: CameraPreset = CAMERA_PRESETS.explore;
 let last = performance.now();
 let seq = 0;
+let captureNext = false;
+let pendingThumb: string | undefined;
+
+/** Small local thumbnail of the frame just rendered (only this player ever sees it). */
+function captureThumb(): string | undefined {
+  const c = document.createElement("canvas");
+  c.width = 192;
+  c.height = 108;
+  const ctx = c.getContext("2d");
+  if (!ctx) return undefined;
+  ctx.drawImage(renderer.domElement, 0, 0, c.width, c.height);
+  return c.toDataURL("image/jpeg", 0.6);
+}
 let sendTimer = 0;
 
 function syncNpcs(dt: number): void {
@@ -252,6 +272,12 @@ renderer.setAnimationLoop((now) => {
   if (room?.state.spots) syncSpots(scene, room.state.spots);
   if (room?.state.vehicles) syncVehicles(scene, room.state.vehicles);
 
+  if (input.wasPressed("photo") && room && !session.get().dialogue) {
+    room.send(MSG_TAKE_PHOTO, { yaw });
+    captureNext = true;
+    setStatus("Photo taken.");
+  }
+
   if (input.wasPressed("toggleBoard")) {
     const boardOpen = !session.get().boardOpen;
     session.update({ boardOpen });
@@ -269,7 +295,7 @@ renderer.setAnimationLoop((now) => {
   const dialogue = session.get().dialogue;
   if (dialogue) {
     // Walking away ends the conversation.
-    const other = room?.state.npcs.get(dialogue.npcId) ?? room?.state.vehicles.get(dialogue.npcId);
+    const other = room?.state.npcs.get(dialogue.npcId) ?? room?.state.vehicles.get(dialogue.npcId) ?? room?.state.spots.get(dialogue.npcId);
     if (!other || Math.hypot(other.x - pos.x, other.z - pos.z) > 4.5) leaveTalk();
     (["choice1", "choice2", "choice3", "choice4"] as const).forEach((a, i) => {
       const option = dialogue.options[i];
@@ -297,6 +323,11 @@ renderer.setAnimationLoop((now) => {
 
   input.endFrame();
   renderer.render(scene, camera);
+  if (captureNext) {
+    // Read the canvas right after rendering, before the buffer is cleared.
+    pendingThumb = captureThumb();
+    captureNext = false;
+  }
 });
 
 document.title = GAME_NAME;

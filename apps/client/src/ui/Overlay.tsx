@@ -47,6 +47,7 @@ export function Overlay({ store, onShare, onBoard, onChoose, onLeaveTalk, onAbil
             {view.evidence.map((f) => (
               <div key={f.item.id} className="vt-row">
                 <div>{f.item.title}</div>
+                {view.photoThumbs[f.item.id] && <img className="vt-thumb" src={view.photoThumbs[f.item.id]} alt="" />}
                 <div className="vt-muted vt-small">{f.item.description}</div>
               </div>
             ))}

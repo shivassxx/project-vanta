@@ -88,3 +88,10 @@
 - Tests (103 passing): ability availability (3), vehicle trace rules (2), integration: plate never in public state, police instant lookup, PI delayed result, forged ability ignored, forced door path; bots now walk with server-validated movement (`Bot.walkTo`). Verified in Chromium.
 - Known gaps: vehicles have no collision and cannot be driven yet; vehicle colliders should join the shared collision list.
 - Remaining M7: phone camera photos, CCTV path.
+
+## 2026-10-06 — M7 slice 4: phone camera + CCTV (M7 complete)
+- Phone camera (P): the client sends only its camera yaw; the server decides what is in frame from authoritative positions (±25° FOV, 22 m range, walls occlude, faces/plates readable within 8 m) and creates a `photo` evidence item captioned with the case clock (starts 08:00) and the nearest named area (`GREYBOX_AREAS`). Photos never name anyone. Cooldown 1.5 s, max 40 per character. The client keeps a local-only thumbnail. Case engine gets `photo.taken {subjectInFrame, area}`; CASE_001 flags a photographed park meeting.
+- CCTV, only through believable routes: police/security/PI can ask the barista for the footage; anyone can force the café's service door to the DVR (crime), and an IT background sees a quieter maintenance-port route (also a crime). Interactive spots reuse the conversation system. The footage shows the envelope handover and the grey-haired man in a black jacket watching from across the street — the deceptive witness.
+- CASE_001 rules: `cafeDvrAccessed` + crimes, `baristaShowedCctv`, `parkMeetingPhotographed`.
+- Tests (110 passing): camera framing/occlusion/detail/caption (6), integration: photo only to the photographer with cooldown, CCTV by asking (security background), DVR forced (doctor; IT option hidden). Verified in Chromium: photo with thumbnail and server description.
+- Next: M8 consequences.

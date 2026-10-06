@@ -13,6 +13,7 @@ import {
   MSG_ABILITIES,
   MSG_DIALOGUE,
   MSG_USE_ABILITY,
+  MSG_TAKE_PHOTO,
   type AbilityView,
   MSG_TALK,
   MSG_TALK_CHOICE,
@@ -116,6 +117,10 @@ export class Bot {
 
   interact(targetId: string): void {
     this.room?.send(MSG_INTERACT, { targetId });
+  }
+
+  takePhoto(yaw = 0): void {
+    this.room?.send(MSG_TAKE_PHOTO, { yaw });
   }
 
   useAbility(id: string): void {

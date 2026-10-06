@@ -82,6 +82,11 @@ export class NpcWorld {
     return p && { pos: p.brain.pos, conversation: p.conversation, observed: describeLook(p.look), isSubject: p.isSubject };
   }
 
+  /** Server-only snapshot for the phone camera. */
+  photoPeople(): { pos: Vec2; look: NpcLook; isSubject: boolean }[] {
+    return this.people.map((p) => ({ pos: { ...p.brain.pos }, look: p.look, isSubject: p.isSubject }));
+  }
+
   /** Someone walked up and spoke to this person. For the Subject that is unmistakable surveillance. */
   confront(id: string, from: Vec2): void {
     const p = this.people.find((x) => x.id === id);

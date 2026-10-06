@@ -1,4 +1,5 @@
 import type { EvidenceItem } from "@vanta/shared";
+import { DVR_INTERACTION } from "../cases/case001Evidence";
 import { SEDAN_INTERACTION } from "../cases/case001Vehicles";
 import type { ConversationDef } from "./types";
 
@@ -20,6 +21,13 @@ export const CASE_001_TESTIMONY: readonly EvidenceItem[] = [
     kind: "testimony",
     title: "Barista on the receipt",
     description: "The card ending 4471 belongs to the man, not Elena. He has paid for her before. 'R.Y. THU' is not the café's writing.",
+  },
+  {
+    id: "case001.ev.cafeCctv",
+    kind: "record",
+    title: "Café CCTV, 08:05–08:20",
+    description:
+      "08:06 Elena enters with a man in a grey coat. 08:14 he slides a small envelope across the table; she puts it in her bag without opening it. 08:19 they leave toward the park. Across the street, a heavy man in a black jacket with grey hair watches them the whole time.",
   },
   {
     id: "case001.ev.smokerStatement",
@@ -46,6 +54,12 @@ export const BARISTA: ConversationDef = {
         { id: "photo", text: "Have you seen this woman? [show photo]", requires: { info: PHOTO }, next: "recognize" },
         { id: "name", text: "Do you know Elena Marsh Varga?", requires: { info: NAME }, next: "recognize" },
         { id: "receipt", text: "Was this paid here? [show receipt]", requires: { evidence: RECEIPT }, next: "receipt" },
+        {
+          id: "cctv",
+          text: "I need to see your camera footage from this morning. [use your background]",
+          requires: { profession: ["police_officer", "security_worker", "private_investigator"] },
+          next: "cctv",
+        },
         { id: "nothing", text: "Just looking around." },
       ],
     },
@@ -55,6 +69,10 @@ export const BARISTA: ConversationDef = {
         { id: "note", text: "Thanks. That helps.", gives: "case001.ev.baristaStatement" },
         { id: "receipt2", text: "Was this paid here? [show receipt]", requires: { evidence: RECEIPT }, next: "receipt", gives: "case001.ev.baristaStatement" },
       ],
+    },
+    cctv: {
+      line: "...Fine. The recorder's in the back. Don't touch anything else. Here, from when we opened.",
+      options: [{ id: "watch", text: "Watch the footage.", gives: "case001.ev.cafeCctv" }],
     },
     receipt: {
       line: "That's ours. Card ending 4471... that's his card, the man in the grey coat. He's paid for her before. The writing on the back isn't ours.",
@@ -133,5 +151,5 @@ export const SUBJECT_CONVERSATION: ConversationDef = {
 };
 
 export const CASE_001_CONVERSATIONS: ReadonlyMap<string, ConversationDef> = new Map(
-  [BARISTA, SMOKER, GENERIC_CIVILIAN, SUBJECT_CONVERSATION, SEDAN_INTERACTION].map((c) => [c.id, c]),
+  [BARISTA, SMOKER, GENERIC_CIVILIAN, SUBJECT_CONVERSATION, SEDAN_INTERACTION, DVR_INTERACTION].map((c) => [c.id, c]),
 );

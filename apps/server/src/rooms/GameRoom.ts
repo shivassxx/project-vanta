@@ -13,6 +13,9 @@ import {
   MSG_SHARE_ITEM,
   MSG_ABILITIES,
   MSG_USE_ABILITY,
+  MSG_TAKE_PHOTO,
+  PHOTO_COOLDOWN_MS,
+  PHOTO_MAX_PER_CHARACTER,
   type EvidenceItem,
   MSG_DIALOGUE,
   MSG_TALK,
@@ -50,6 +53,7 @@ import {
 import { choose, nodeView, type TalkerContext } from "../systems/conversations";
 import { availableAbilities } from "../systems/abilities";
 import { VehicleWorld } from "../systems/vehicles";
+import { composePhoto } from "../systems/camera";
 import { applyBoardCommand, emptyBoard } from "../systems/board";
 import { EvidenceStore, EvidenceWorld } from "../systems/evidence";
 import type { Effect } from "@vanta/case-engine";
@@ -104,6 +108,8 @@ export class GameRoom extends Room<GameState> {
   private vehicleWorld!: VehicleWorld;
   /** Abilities each character has already used (one use per case). */
   private readonly usedAbilities = new Map<CharacterId, Set<string>>();
+  private readonly photoCount = new Map<CharacterId, number>();
+  private readonly lastPhotoAt = new Map<CharacterId, number>();
   /** Open conversations by session ID. */
   private readonly talks = new Map<string, { npcId: string; conversation: string; node: string }>();
   private caseTimeScale = 1;
@@ -134,6 +140,7 @@ export class GameRoom extends Room<GameState> {
     this.vehicleWorld = new VehicleWorld(CASE_001_VEHICLES);
     this.vehicleWorld.populate(this.state.vehicles);
     this.onMessage(MSG_USE_ABILITY, (client, raw) => this.handleAbility(client, raw));
+    this.onMessage(MSG_TAKE_PHOTO, (client, raw) => this.handlePhoto(client, raw));
     this.onMessage(MSG_INTERACT, (client, raw) => this.handleInteract(client, raw));
     this.onMessage(MSG_BOARD_COMMAND, (client, raw) => this.handleBoard(client, raw));
     this.onMessage(MSG_TALK, (client, raw) => this.handleTalk(client, raw));
@@ -282,7 +289,8 @@ export class GameRoom extends Room<GameState> {
     const r = this.evidenceWorld.examine((raw as { targetId?: unknown } | null)?.targetId, { x: p.x, z: p.z });
     if (!r.ok) return;
     if (r.removed) this.state.spots.delete(r.def.spotId);
-    this.grantEvidence(characterId, r.def.item);
+    if (r.def.item) this.grantEvidence(characterId, r.def.item);
+    else if (r.def.interaction) this.startConversation(client, r.def.spotId);
   }
 
   private talkerContext(characterId: CharacterId): TalkerContext {
@@ -297,7 +305,7 @@ export class GameRoom extends Room<GameState> {
   /** Returns the person or vehicle if the player is close enough; checked with server positions. */
   private reachablePerson(sessionId: string, npcId: unknown) {
     const p = this.state.players.get(sessionId);
-    const person = typeof npcId === "string" ? (this.npcWorld.find(npcId) ?? this.vehicleWorld.find(npcId)) : undefined;
+    const person = typeof npcId === "string" ? (this.npcWorld.find(npcId) ?? this.vehicleWorld.find(npcId) ?? this.evidenceWorld.findInteractive(npcId)) : undefined;
     if (!p || !person || Math.hypot(person.pos.x - p.x, person.pos.z - p.z) > TALK_RANGE + 0.5) return undefined;
     return { person, from: { x: p.x, z: p.z } };
   }
@@ -307,8 +315,12 @@ export class GameRoom extends Room<GameState> {
   }
 
   private handleTalk(client: Client, raw: unknown): void {
+    this.startConversation(client, (raw as { npcId?: unknown } | null)?.npcId);
+  }
+
+  /** Opens a conversation with a person, vehicle or interactive spot the player can reach. */
+  private startConversation(client: Client, npcId: unknown): void {
     const characterId = this.characters.get(client.sessionId)?.id;
-    const npcId = (raw as { npcId?: unknown } | null)?.npcId;
     const reach = this.reachablePerson(client.sessionId, npcId);
     if (!characterId || !reach || typeof npcId !== "string") return;
     const def = CASE_001_CONVERSATIONS.get(reach.person.conversation);
@@ -366,6 +378,39 @@ export class GameRoom extends Room<GameState> {
       (id) => !!this.evidence.has(characterId, id),
       this.usedAbilities.get(characterId) ?? new Set(),
     );
+  }
+
+  /** Case clock shown on records: the case starts at 08:00. */
+  private clockLabel(): string {
+    const total = 8 * 60 + Math.floor(this.caseRunner.now / 60);
+    return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+  }
+
+  /** Phone camera: what is in frame is decided from server positions, never by the client. */
+  private handlePhoto(client: Client, raw: unknown): void {
+    const characterId = this.characters.get(client.sessionId)?.id;
+    const p = this.state.players.get(client.sessionId);
+    const yaw = (raw as { yaw?: unknown } | null)?.yaw;
+    if (!characterId || !p || typeof yaw !== "number" || !Number.isFinite(yaw)) return;
+    const now = Date.now();
+    const count = this.photoCount.get(characterId) ?? 0;
+    if (now - (this.lastPhotoAt.get(characterId) ?? 0) < PHOTO_COOLDOWN_MS || count >= PHOTO_MAX_PER_CHARACTER) return;
+    this.lastPhotoAt.set(characterId, now);
+    this.photoCount.set(characterId, count + 1);
+    const occluders = GREYBOX_WALLS.filter((w) => w.kind === "wall");
+    const shot = composePhoto({ x: p.x, z: p.z }, yaw, {
+      people: this.npcWorld.photoPeople(),
+      vehicles: this.vehicleWorld.photoVehicles(),
+      occluders,
+    });
+    const item: EvidenceItem = {
+      id: `photo.${characterId}.${count + 1}`,
+      kind: "photo",
+      title: `Photo ${this.clockLabel()}, ${shot.area}`,
+      description: shot.lines.join(" "),
+    };
+    this.grantEvidence(characterId, item);
+    this.caseRunner.feed("photo.taken", { subjectInFrame: shot.subjectInFrame, area: shot.area });
   }
 
   private handleAbility(client: Client, raw: unknown): void {

@@ -48,6 +48,12 @@ export class EvidenceWorld {
     }
   }
 
+  /** Interactive spots (e.g. a locked door) behave like conversation targets. */
+  findInteractive(id: string): { pos: Vec2; conversation: string; observed: string } | undefined {
+    const d = this.spots.get(id);
+    return d?.interaction ? { pos: d.position, conversation: d.interaction, observed: d.label } : undefined;
+  }
+
   /** Validates distance on the server; picking up removes the spot for everyone. */
   examine(spotId: unknown, from: Vec2): ExamineResult {
     const def = typeof spotId === "string" ? this.spots.get(spotId) : undefined;

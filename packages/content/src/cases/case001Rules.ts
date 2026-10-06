@@ -4,7 +4,8 @@ import { CASE_001_SUBJECT_SIGNAL } from "./case001";
 /**
  * SERVER-ONLY. CASE_001 as data. Events come from the server:
  *   igl.designated, time, subject.noticed, subject.arrived {note}, subject.departed {note}, info.shared {itemId},
- *   evidence.found {evidenceId}, conversation.choice {conversation, option}, police.plateLookup, pi.dmvRequest
+ *   evidence.found {evidenceId}, conversation.choice {conversation, option}, police.plateLookup, pi.dmvRequest,
+ *   photo.taken {subjectInFrame, area}
  * Effects go to the server:
  *   vanta.deliver {items}  -> VANTA sends items to the IGL
  *   subject.alert {level}  -> Subject behavior changes (acted on in M8)
@@ -55,6 +56,25 @@ export const CASE_001_RULES: CaseDef = {
       on: "conversation.choice",
       when: { any: [{ payload: "option", equals: "start.force" }, { payload: "option", equals: "window.force" }] },
       do: [{ setFlag: "sedanBrokenInto", value: true }, { increment: "crimes" }],
+    },
+    {
+      id: "dvr_break_in",
+      on: "conversation.choice",
+      when: { all: [{ payload: "conversation", equals: "dvr_cafe" }, { any: [{ payload: "option", equals: "start.break" }, { payload: "option", equals: "start.port" }] }] },
+      do: [{ setFlag: "cafeDvrAccessed", value: true }, { increment: "crimes" }],
+    },
+    {
+      id: "cctv_by_request",
+      on: "conversation.choice",
+      when: { all: [{ payload: "conversation", equals: "barista" }, { payload: "option", equals: "start.cctv" }] },
+      do: [{ setFlag: "baristaShowedCctv", value: true }],
+    },
+    // Photographing the Subject at the park bench documents the meeting.
+    {
+      id: "park_photo",
+      on: "photo.taken",
+      when: { all: [{ payload: "subjectInFrame", equals: true }, { payload: "area", equals: "by the park bench" }] },
+      do: [{ setFlag: "parkMeetingPhotographed", value: true }],
     },
     { id: "plate_lookup_logged", on: "police.plateLookup", do: [{ setFlag: "policeLookupLogged", value: true }] },
     { id: "dmv_request", on: "pi.dmvRequest", do: [{ setFlag: "dmvRequestFiled", value: true }] },

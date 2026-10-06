@@ -21,6 +21,15 @@ export class VehicleWorld {
     }
   }
 
+  /** Server-only snapshot for the phone camera. */
+  photoVehicles(): { pos: Vec2; description: string; plate: string }[] {
+    return [...this.vehicles.values()].map((d) => ({
+      pos: d.position,
+      description: `${VEHICLE_COLORS.find((c) => c.id === d.color)?.name ?? ""} ${d.model}`,
+      plate: d.plate,
+    }));
+  }
+
   find(id: string): { pos: Vec2; conversation: string; observed: string } | undefined {
     const d = this.vehicles.get(id);
     if (!d) return undefined;

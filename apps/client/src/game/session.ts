@@ -16,6 +16,8 @@ export interface SessionView {
   boardOpen: boolean;
   dialogue?: DialogueView;
   abilities: AbilityView[];
+  /** Local-only thumbnails of photos this player took (the server keeps the description). */
+  photoThumbs: Record<string, string>;
 }
 
 type Listener = () => void;
@@ -29,6 +31,7 @@ export class SessionStore {
     board: { entries: [], links: [] },
     boardOpen: false,
     abilities: [],
+    photoThumbs: {},
   };
   private readonly listeners = new Set<Listener>();
 

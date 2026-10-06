@@ -52,7 +52,8 @@ describe("conversations", () => {
     igl.talk(baristaId);
     await wait(150);
     expect(igl.dialogue?.observed).toContain("round face");
-    expect(igl.dialogue?.options.map((o) => o.id)).toEqual(["photo", "name", "nothing"]);
+    const authority = ["police_officer", "security_worker", "private_investigator"].includes(igl.profile?.professionId ?? "");
+    expect(igl.dialogue?.options.map((o) => o.id)).toEqual(["photo", "name", ...(authority ? ["cctv"] : []), "nothing"]);
     igl.choose("photo");
     await wait(150);
     expect(igl.dialogue?.line).toContain("grey coat");
