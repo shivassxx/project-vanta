@@ -1,27 +1,39 @@
 import type { CharacterId, KnownInfo, ShareRequest, SubjectInfoItem } from "@vanta/shared";
+import { NoCharacterData, type CharacterDataRepository } from "../persistence/CharacterDataRepository";
 
-/** What each character knows. Server-only; each client receives only its own list. */
+/**
+ * What each character knows. Server-only; each client receives only its own list.
+ * Loaded from the character save on first use and written through on every change.
+ */
 export class KnowledgeStore {
   private readonly byCharacter = new Map<CharacterId, Map<string, KnownInfo>>();
 
-  /** Returns true if this was new to the character. Existing knowledge is not overwritten. */
-  grant(characterId: CharacterId, info: KnownInfo): boolean {
+  constructor(private readonly repo: CharacterDataRepository = new NoCharacterData()) {}
+
+  private known(characterId: CharacterId): Map<string, KnownInfo> {
     let known = this.byCharacter.get(characterId);
     if (!known) {
-      known = new Map();
+      known = new Map(this.repo.loadKnowledge(characterId).map((k) => [k.item.id, k]));
       this.byCharacter.set(characterId, known);
     }
+    return known;
+  }
+
+  /** Returns true if this was new to the character. Existing knowledge is not overwritten. */
+  grant(characterId: CharacterId, info: KnownInfo): boolean {
+    const known = this.known(characterId);
     if (known.has(info.item.id)) return false;
     known.set(info.item.id, info);
+    this.repo.saveKnowledge(characterId, [...known.values()]);
     return true;
   }
 
   get(characterId: CharacterId, itemId: string): SubjectInfoItem | undefined {
-    return this.byCharacter.get(characterId)?.get(itemId)?.item;
+    return this.known(characterId).get(itemId)?.item;
   }
 
   list(characterId: CharacterId): KnownInfo[] {
-    return [...(this.byCharacter.get(characterId)?.values() ?? [])];
+    return [...this.known(characterId).values()];
   }
 }
 

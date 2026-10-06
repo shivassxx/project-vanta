@@ -1,27 +1,39 @@
 import type { EvidenceSpotDef } from "@vanta/content/server";
 import { INTERACT_RANGE, SpotState, type CharacterId, type FoundEvidence, type Vec2 } from "@vanta/shared";
+import { NoCharacterData, type CharacterDataRepository } from "../persistence/CharacterDataRepository";
 
-/** Evidence each character holds. Server-only; a client only ever receives its own list. */
+/**
+ * Evidence each character holds. Server-only; a client only ever receives its own list.
+ * Loaded from the character save on first use and written through on every change.
+ */
 export class EvidenceStore {
   private readonly byCharacter = new Map<CharacterId, Map<string, FoundEvidence>>();
 
-  grant(characterId: CharacterId, found: FoundEvidence): boolean {
+  constructor(private readonly repo: CharacterDataRepository = new NoCharacterData()) {}
+
+  private held(characterId: CharacterId): Map<string, FoundEvidence> {
     let held = this.byCharacter.get(characterId);
     if (!held) {
-      held = new Map();
+      held = new Map(this.repo.loadEvidence(characterId).map((e) => [e.item.id, e]));
       this.byCharacter.set(characterId, held);
     }
+    return held;
+  }
+
+  grant(characterId: CharacterId, found: FoundEvidence): boolean {
+    const held = this.held(characterId);
     if (held.has(found.item.id)) return false;
     held.set(found.item.id, found);
+    this.repo.saveEvidence(characterId, [...held.values()]);
     return true;
   }
 
   has(characterId: CharacterId, evidenceId: string): FoundEvidence | undefined {
-    return this.byCharacter.get(characterId)?.get(evidenceId);
+    return this.held(characterId).get(evidenceId);
   }
 
   list(characterId: CharacterId): FoundEvidence[] {
-    return [...(this.byCharacter.get(characterId)?.values() ?? [])];
+    return [...this.held(characterId).values()];
   }
 }
 

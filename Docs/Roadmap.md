@@ -9,5 +9,5 @@
 - [x] M6 Case engine — pure data-driven events → conditions → actions engine with timers, stages, outcomes, validation; CASE_001 rules as data drive the VANTA signal, Subject pressure and the delay consequence
 - [x] M7 Investigation — physical evidence, shared case board, conversations (honest + deceptive witness), vehicle clue with background paths, phone camera photos, CCTV via employee or DVR access
 - [x] M8 Consequences — Subject escape, NPC death (persistent), witnessed-crime police contact, persistent world state, CASE_001 outcomes: subject_fled, case_cold, subject_warned, subject_reported
-- [ ] M9 Save/Load
+- [x] M9 Save/Load — SQLite (better-sqlite3): separate campaign/world and character saves, versioned JSON with migrations, round-trip and server-restart tests
 - [ ] M10 Vertical slice (CASE_001)

@@ -120,8 +120,6 @@ export class GameRoom extends Room<GameState> {
   private board: Board = emptyBoard();
   private boardIds = 0;
   private vehicleWorld!: VehicleWorld;
-  /** Abilities each character has already used (one use per case). */
-  private readonly usedAbilities = new Map<CharacterId, Set<string>>();
   private readonly photoCount = new Map<CharacterId, number>();
   private readonly lastPhotoAt = new Map<CharacterId, number>();
   /** Open conversations by session ID. */
@@ -149,6 +147,9 @@ export class GameRoom extends Room<GameState> {
       this.saveWorld();
     });
     if (this.world.cases[caseId]) console.log(`[Saves] ${caseId} resumed at stage ${this.caseRunner.state.stage}`);
+    this.board = this.world.boards[caseId] ?? emptyBoard();
+    // Continue board IDs after a reload so new entries never collide with saved ones.
+    this.boardIds = Math.max(0, ...[...this.board.entries, ...this.board.links].map((x) => Number(x.id.slice(1)) || 0));
     this.setState(new GameState());
     this.npcTimeScale = options.npcTimeScale ?? 1;
     this.npcWorld = new NpcWorld(options.people, (e) => {
@@ -456,7 +457,7 @@ export class GameRoom extends Room<GameState> {
       CASE_001_ABILITIES,
       record?.professionId ?? "",
       (id) => !!this.evidence.has(characterId, id),
-      this.usedAbilities.get(characterId) ?? new Set(),
+      new Set(this.world.usedAbilities[characterId] ?? []),
       (id) => !!this.knowledge.get(characterId, id),
     );
   }
@@ -501,9 +502,8 @@ export class GameRoom extends Room<GameState> {
     const def = CASE_001_ABILITIES.find((a) => a.id === id);
     if (!def) return;
     const item = def.grants ? CASE_001_EVIDENCE_ITEMS.get(def.grants) : undefined;
-    const used = this.usedAbilities.get(characterId) ?? new Set<string>();
-    used.add(def.id);
-    this.usedAbilities.set(characterId, used);
+    (this.world.usedAbilities[characterId] ??= []).push(def.id);
+    this.saveWorld();
     client.send(MSG_ABILITIES, this.abilitiesOf(characterId));
     console.log(`[Investigation] ${characterId} used ${def.id}`);
     this.caseRunner.feed(def.caseEvent);
@@ -528,6 +528,8 @@ export class GameRoom extends Room<GameState> {
       return;
     }
     this.board = r.board;
+    this.world.boards[CASE_001_RULES.id] = this.board;
+    this.saveWorld();
     this.broadcast(MSG_BOARD, this.board);
     if (r.event) this.caseRunner.feed(r.event.type, r.event.refId ? { refId: r.event.refId } : undefined);
   }

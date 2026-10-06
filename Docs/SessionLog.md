@@ -115,3 +115,11 @@
 - Tests (132 passing, 3 runs): death rules, interventions, body/witness/photo behavior, report ability, integration: warn outcome and departure, report outcome persisted, watcher death -> body examined -> dead in the next room.
 - Not verified visually: the body pose (death takes 20+ real minutes at normal speed).
 - Next: M9 save/load (durable SQLite storage for characters, world state, knowledge and evidence).
+
+## 2026-10-06 — M9 Save/Load
+- `SqliteStore` (better-sqlite3 13; pnpm `onlyBuiltDependencies` allows its native build) implements `CharacterRepository`, `CharacterDataRepository` and `WorldRepository`. Tables: `meta` (DB schema version), `characters` (id, token hash, campaign, JSON save), `campaigns` (id, JSON world save).
+- Character save v1: identity + knowledge + evidence. World save v2: v1 + case boards + used abilities (real migration v1 -> v2). `runMigrations` is generic and refuses newer, unversioned or unmigratable saves; a newer DB schema is refused at open.
+- Knowledge/evidence stores hydrate from the character save on first access and write through. The room loads the board and used abilities from the world save; board IDs continue after reload.
+- Real server uses `saves/vanta.sqlite` (or `VANTA_DB`); tests stay in-memory unless they opt in.
+- Tests (142 passing): migrations (3), world repo migration, SQLite round-trips (character, world), raw token never in the DB file, old save migrated / future save refused / newer DB refused, integration: full server restart on the same file brings back characters, knowledge, evidence, board (new IDs do not collide) and the case stage. Verified manually: `pnpm dev` restarted, same token -> same character and profession.
+- First Playable list: all 12 items now exist. Next: M10 vertical slice — make CASE_001 complete and fun (playtest, tune timings, fix rough edges).

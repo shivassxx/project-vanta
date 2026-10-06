@@ -4,6 +4,7 @@ import { WebSocketTransport } from "@colyseus/ws-transport";
 import { GAME_ROOM_NAME } from "@vanta/shared";
 import { InMemoryCharacterRepository } from "./persistence/CharacterRepository";
 import { InMemoryWorldRepository } from "./persistence/WorldRepository";
+import { SqliteStore } from "./persistence/sqlite";
 import { GameRoom, type GameRoomOptions } from "./rooms/GameRoom";
 import { CharacterService } from "./systems/characters";
 import { EvidenceStore } from "./systems/evidence";
@@ -35,4 +36,14 @@ export async function startGameServer(port: number, overrides: Partial<GameRoomO
   gameServer.define(GAME_ROOM_NAME, GameRoom, roomOptions);
   await gameServer.listen(port);
   return gameServer;
+}
+
+/** Production wiring: every repository backed by one SQLite file. */
+export function sqliteOptions(store: SqliteStore): Partial<GameRoomOptions> {
+  return {
+    characters: new CharacterService(store, DEV_CAMPAIGN_ID),
+    knowledge: new KnowledgeStore(store),
+    evidence: new EvidenceStore(store),
+    world: store,
+  };
 }

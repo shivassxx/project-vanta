@@ -1,7 +1,15 @@
 import type { CaseState } from "@vanta/case-engine";
-import type { CampaignId, CharacterId, PhoneMessage } from "@vanta/shared";
+import type { Board, CampaignId, CharacterId, PhoneMessage } from "@vanta/shared";
+import { runMigrations, type Migration } from "./migrations";
 
-export const WORLD_STATE_VERSION = 1;
+export const WORLD_STATE_VERSION = 2;
+
+/** v1 -> v2: case boards and used abilities became campaign memory. */
+export const WORLD_MIGRATIONS: readonly Migration[] = [{ from: 1, migrate: (d) => ({ ...d, boards: {}, usedAbilities: {} }) }];
+
+export function migrateWorld(raw: unknown): WorldState {
+  return runMigrations<WorldState>(raw, WORLD_STATE_VERSION, WORLD_MIGRATIONS, "world save");
+}
 
 export type PersonStatus = "present" | "gone" | "dead";
 
@@ -21,10 +29,24 @@ export interface WorldState {
   /** Reasons the police are interested in a character. */
   policeAttention: Record<CharacterId, string[]>;
   phone: Record<CharacterId, PhoneMessage[]>;
+  /** Shared case board per case ID. */
+  boards: Record<string, Board>;
+  /** Abilities each character has used (one use per campaign). */
+  usedAbilities: Record<CharacterId, string[]>;
 }
 
 export function emptyWorld(campaignId: CampaignId): WorldState {
-  return { version: WORLD_STATE_VERSION, campaignId, cases: {}, vantaDelivered: {}, people: {}, policeAttention: {}, phone: {} };
+  return {
+    version: WORLD_STATE_VERSION,
+    campaignId,
+    cases: {},
+    vantaDelivered: {},
+    people: {},
+    policeAttention: {},
+    phone: {},
+    boards: {},
+    usedAbilities: {},
+  };
 }
 
 export interface WorldRepository {
@@ -39,9 +61,7 @@ export class InMemoryWorldRepository implements WorldRepository {
   load(campaignId: CampaignId): WorldState {
     const raw = this.byCampaign.get(campaignId);
     if (!raw) return emptyWorld(campaignId);
-    const state = JSON.parse(raw) as WorldState;
-    if (state.version !== WORLD_STATE_VERSION) throw new Error(`world state version ${state.version} needs a migration`);
-    return state;
+    return migrateWorld(JSON.parse(raw));
   }
 
   save(state: WorldState): void {
