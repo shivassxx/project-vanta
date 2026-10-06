@@ -33,12 +33,14 @@ export class Brain {
     startNode: number,
     private readonly plan: readonly Stop[],
     private readonly walkSpeed: number,
+    /** Fixed position for people who stay put (their plan never ends the first dwell). */
+    standAt?: Vec2,
   ) {
     this.nodeIdx = startNode;
     this.stopIdx = 1 % plan.length;
     const start = RING_NODES[startNode];
     if (!start || plan.length === 0) throw new Error("invalid brain definition");
-    this.pos = { ...start };
+    this.pos = { ...(standAt ?? start) };
     this.dwellLeft = plan[0]?.dwellSec ?? 0;
   }
 

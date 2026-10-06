@@ -1,4 +1,4 @@
-import type { Board, CharacterId, FoundEvidence, KnownInfo, PrivateProfile } from "@vanta/shared";
+import type { Board, CharacterId, DialogueView, FoundEvidence, KnownInfo, PrivateProfile } from "@vanta/shared";
 
 export interface Teammate {
   characterId: CharacterId;
@@ -14,6 +14,7 @@ export interface SessionView {
   evidence: FoundEvidence[];
   board: Board;
   boardOpen: boolean;
+  dialogue?: DialogueView;
 }
 
 type Listener = () => void;

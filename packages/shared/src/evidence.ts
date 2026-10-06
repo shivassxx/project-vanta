@@ -1,6 +1,6 @@
 import type { CharacterId } from "./characters";
 
-export type EvidenceKind = "document" | "object" | "record" | "photo";
+export type EvidenceKind = "document" | "object" | "record" | "photo" | "testimony";
 
 /**
  * What a piece of evidence says. Never carries authenticity or truth: evidence may be

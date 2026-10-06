@@ -70,3 +70,11 @@
 - Client: placeholder paper objects, "Examine" prompt, evidence list, board panel (B) with pin/note/link UI; keyboard input is ignored while typing in overlay fields. Removed the M1 placeholder crate interactions.
 - Tests (87 passing): board reducer (5), evidence world/store (3), integration: far player cannot pick up, contents never reach others until pinned, pinning shares with team, notes and links sync. Verified in Chromium: walk to the receipt, pick up, pin, note visible on the second player's board.
 - Remaining M7: phone camera photos, conversations (honest/deceptive witness), CCTV path, vehicle record lookup.
+
+## 2026-10-06 — M7 slice 2: conversations
+- Authored conversations as data (`@vanta/content/server` conversations): nodes with lines and options; options can require held evidence, known info (e.g. the Subject photo) or the player's private background. `validateConversation` checks links, testimony IDs and that every node has an unconditional option.
+- CASE_001: honest witness (barista, near the café: Elena came with an older man in a grey coat; with the receipt: the card is his) and deceptive witness (smoker near the park: sends players after a red car going north, denies the bench meeting; police/PI/ex-intelligence backgrounds can press him and he gets nervous). Generic civilians brush players off; the Subject asks "Do I know you?" and notices the player immediately.
+- Anyone can be talked to (E), so the UI does not reveal who matters. The server checks distance, evaluates requirements and sends only the options this player can use; forged option IDs are ignored. Testimony is granted as evidence (kind `testimony`) and can be pinned. Case engine gets `conversation.started`, `conversation.choice`, `evidence.found`.
+- Client: dialogue panel (mouse or keys 1-4, walk away to end).
+- Tests (96 passing): conversation gating/tree (4), content validation (3), witnesses stay put, Subject notices a talker, integration: hidden option not shown and forged choice ignored, IGL with photo gets testimony that never reaches the other player, talking to the Subject is noticed, out-of-range talk refused. Verified in Chromium: walk to the barista, show photo, statement added to evidence.
+- Remaining M7: phone camera photos, CCTV path, vehicle record lookup.

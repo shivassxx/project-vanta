@@ -10,9 +10,11 @@ export interface OverlayProps {
   store: SessionStore;
   onShare: (itemId: string, to: CharacterId[]) => void;
   onBoard: (cmd: BoardCommand) => void;
+  onChoose: (optionId: string) => void;
+  onLeaveTalk: () => void;
 }
 
-export function Overlay({ store, onShare, onBoard }: OverlayProps) {
+export function Overlay({ store, onShare, onBoard, onChoose, onLeaveTalk }: OverlayProps) {
   const view = useSyncExternalStore(store.subscribe, store.get);
   const self = view.profile?.characterId;
   const isIgl = !!self && view.iglCharacterId === self;
@@ -49,6 +51,20 @@ export function Overlay({ store, onShare, onBoard }: OverlayProps) {
           </div>
         )}
       </div>
+      {view.dialogue && !view.dialogue.ended && (
+        <div className="vt-dialogue">
+          <div className="vt-muted vt-small">{view.dialogue.observed}</div>
+          <div className="vt-line">“{view.dialogue.line}”</div>
+          {view.dialogue.options.map((o, i) => (
+            <button key={o.id} onClick={() => onChoose(o.id)}>
+              {i + 1}. {o.text}
+            </button>
+          ))}
+          <button className="vt-muted" onClick={onLeaveTalk}>
+            [walk away]
+          </button>
+        </div>
+      )}
       {view.boardOpen && <BoardPanel board={view.board} evidence={view.evidence} knowledge={view.knowledge} send={onBoard} self={self} />}
     </>
   );

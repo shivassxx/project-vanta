@@ -10,3 +10,4 @@ export * from "./characters";
 export * from "./vanta";
 export * from "./appearance";
 export * from "./evidence";
+export * from "./dialogue";

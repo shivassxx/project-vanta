@@ -1,4 +1,4 @@
-import type { NpcLook } from "@vanta/shared";
+import type { NpcLook, Vec2 } from "@vanta/shared";
 import { PHOTO_FACES } from "./case001Faces";
 
 /**
@@ -19,6 +19,10 @@ export interface PersonDef {
   startNode: number;
   plan: readonly Stop[];
   walkSpeed: number;
+  /** Conversation ID (see conversations); people without one use the generic civilian. */
+  conversation?: string;
+  /** Stands still at this exact spot instead of walking the ring. */
+  standAt?: Vec2;
 }
 
 const subjectFace = PHOTO_FACES["photo:subject_case001"];
@@ -30,6 +34,7 @@ export const CASE_001_SUBJECT: PersonDef = {
   look: { ...subjectFace, jacket: "jacket_green", build: "slim" },
   startNode: 0,
   walkSpeed: 1.5,
+  conversation: "subject",
   plan: [
     { node: 0, dwellSec: 25, note: "leaves home" },
     { node: 2, dwellSec: 40, note: "coffee shop" },
@@ -70,5 +75,27 @@ export const CASE_001_CIVILIANS: readonly PersonDef[] = [
       { node: 5, dwellSec: 30, note: "bench" },
       { node: 1, dwellSec: 30, note: "bench" },
     ],
+  },
+];
+
+/** Important NPCs who stay at their workplace. One tells the truth, one does not. */
+export const CASE_001_WITNESSES: readonly PersonDef[] = [
+  {
+    key: "witness_barista",
+    look: { skin: "skin_4", hair: "hair_black", faceShape: "round", jacket: "jacket_tan", build: "average" },
+    startNode: 2,
+    walkSpeed: 0,
+    conversation: "barista",
+    standAt: { x: 10.5, z: 7.2 },
+    plan: [{ node: 2, dwellSec: Number.POSITIVE_INFINITY, note: "working" }],
+  },
+  {
+    key: "witness_smoker",
+    look: { skin: "skin_1", hair: "hair_grey", faceShape: "angular", jacket: "jacket_black", build: "heavy" },
+    startNode: 4,
+    walkSpeed: 0,
+    conversation: "smoker",
+    standAt: { x: 7.4, z: -10.6 },
+    plan: [{ node: 4, dwellSec: Number.POSITIVE_INFINITY, note: "smoking" }],
   },
 ];

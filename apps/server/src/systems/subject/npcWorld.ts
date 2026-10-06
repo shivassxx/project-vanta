@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
-import { CASE_001_CIVILIANS, CASE_001_SUBJECT, type PersonDef } from "@vanta/content/server";
-import { NpcState, type NpcLook, type Vec2 } from "@vanta/shared";
+import { CASE_001_CIVILIANS, CASE_001_SUBJECT, CASE_001_WITNESSES, type PersonDef } from "@vanta/content/server";
+import { NpcState, describeLook, type NpcLook, type Vec2 } from "@vanta/shared";
 import { Awareness, type Observer } from "./awareness";
 import { Brain, type BrainEvent } from "./brain";
 
@@ -15,6 +15,7 @@ interface Person {
   brain: Brain;
   awareness?: Awareness;
   look: NpcLook;
+  conversation: string;
 }
 
 const opaqueId = () => `npc_${randomBytes(4).toString("hex")}`;
@@ -27,16 +28,17 @@ export class NpcWorld {
   private readonly people: Person[] = [];
 
   constructor(
-    defs: readonly PersonDef[] = [CASE_001_SUBJECT, ...CASE_001_CIVILIANS],
+    defs: readonly PersonDef[] = [CASE_001_SUBJECT, ...CASE_001_CIVILIANS, ...CASE_001_WITNESSES],
     private readonly onEvent: (e: SubjectEvent) => void = () => undefined,
   ) {
     for (const def of defs) {
       this.people.push({
         id: opaqueId(),
         isSubject: def.key === CASE_001_SUBJECT.key,
-        brain: new Brain(def.startNode, def.plan, def.walkSpeed),
+        brain: new Brain(def.startNode, def.plan, def.walkSpeed, def.standAt),
         awareness: def.key === CASE_001_SUBJECT.key ? new Awareness() : undefined,
         look: def.look,
+        conversation: def.conversation ?? "civilian",
       });
     }
   }
@@ -63,12 +65,7 @@ export class NpcWorld {
       p.brain.tick(dt, (e) => p.isSubject && this.emitBrain(e));
       if (p.awareness) {
         const culprit = p.awareness.update(dt, p.brain.pos, p.brain.facing, observers);
-        if (culprit && p.brain.mode !== "evading") {
-          this.onEvent({ type: "subject.noticed", by: culprit.pos, at: { ...p.brain.pos } });
-          p.brain.faceToward(culprit.pos);
-          p.brain.evade(culprit.pos, (e) => this.emitBrain(e));
-          p.awareness.reset();
-        }
+        if (culprit && p.brain.mode !== "evading") this.notice(p, culprit.pos);
       }
       const s = npcs.get(p.id);
       if (s) {
@@ -77,6 +74,25 @@ export class NpcWorld {
         s.facing = p.brain.facing;
       }
     }
+  }
+
+  /** Server-only lookups for conversations; never sent to clients. */
+  find(id: string): { pos: Vec2; conversation: string; observed: string; isSubject: boolean } | undefined {
+    const p = this.people.find((x) => x.id === id);
+    return p && { pos: p.brain.pos, conversation: p.conversation, observed: describeLook(p.look), isSubject: p.isSubject };
+  }
+
+  /** Someone walked up and spoke to this person. For the Subject that is unmistakable surveillance. */
+  confront(id: string, from: Vec2): void {
+    const p = this.people.find((x) => x.id === id);
+    if (p?.isSubject && p.brain.mode !== "evading") this.notice(p, from);
+  }
+
+  private notice(p: Person, from: Vec2): void {
+    this.onEvent({ type: "subject.noticed", by: from, at: { ...p.brain.pos } });
+    p.brain.faceToward(from);
+    p.brain.evade(from, (e) => this.emitBrain(e));
+    p.awareness?.reset();
   }
 
   /** For the (future) case engine and debug tools; never sent to clients. */

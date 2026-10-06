@@ -10,6 +10,10 @@ import {
   MSG_KNOWLEDGE,
   MSG_PRIVATE_PROFILE,
   MSG_SHARE_ITEM,
+  MSG_DIALOGUE,
+  MSG_TALK,
+  MSG_TALK_CHOICE,
+  type DialogueView,
   MSG_REQUEST_PRIVATE_SYNC,
   type Board,
   type BoardCommand,
@@ -41,6 +45,7 @@ export class Bot {
   knowledge: KnownInfo[] = [];
   evidence: FoundEvidence[] = [];
   board: Board = { entries: [], links: [] };
+  dialogue?: DialogueView;
 
   constructor(private readonly opts: BotOptions) {
     this.client = new Client(opts.endpoint);
@@ -64,6 +69,7 @@ export class Bot {
       if (type === MSG_KNOWLEDGE) this.knowledge = message as KnownInfo[];
       if (type === MSG_EVIDENCE) this.evidence = message as FoundEvidence[];
       if (type === MSG_BOARD) this.board = message as Board;
+      if (type === MSG_DIALOGUE) this.dialogue = message as DialogueView;
     });
     room.send(MSG_REQUEST_PRIVATE_SYNC);
   }
@@ -105,6 +111,14 @@ export class Bot {
 
   interact(targetId: string): void {
     this.room?.send(MSG_INTERACT, { targetId });
+  }
+
+  talk(npcId: string): void {
+    this.room?.send(MSG_TALK, { npcId });
+  }
+
+  choose(optionId: string): void {
+    this.room?.send(MSG_TALK_CHOICE, { optionId });
   }
 
   boardCommand(cmd: BoardCommand): void {

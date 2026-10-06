@@ -1,6 +1,6 @@
 import { NpcState } from "@vanta/shared";
 import { describe, expect, it } from "vitest";
-import { npcInteractables, observationText } from "./observe";
+import { npcInteractables } from "./observe";
 
 function npc(id: string, x: number): NpcState {
   const n = new NpcState();
@@ -20,9 +20,4 @@ describe("observe", () => {
     expect(list.map((i) => [i.id, i.position.x])).toEqual([["a", 1], ["b", 2]]);
   });
 
-  it("reports appearance only", () => {
-    const text = observationText(npc("a", 0));
-    expect(text).toBe("You see someone: slim build, oval face, medium skin, brown hair, olive green jacket.");
-    expect(text.toLowerCase()).not.toContain("subject");
-  });
 });

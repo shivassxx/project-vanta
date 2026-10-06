@@ -1,6 +1,6 @@
 import type { Server } from "@colyseus/core";
 import { Bot } from "@vanta/bots";
-import { CASE_001_CIVILIANS, CASE_001_SUBJECT } from "@vanta/content/server";
+import { CASE_001_CIVILIANS, CASE_001_SUBJECT, CASE_001_WITNESSES } from "@vanta/content/server";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startGameServer } from "./createServer";
 import { RING_NODES } from "./systems/subject/ring";
@@ -23,7 +23,7 @@ describe("Subject in the world", () => {
     const room = await bot.join();
     await wait(200);
     const npcs = [...room.state.npcs.values()];
-    expect(npcs).toHaveLength(1 + CASE_001_CIVILIANS.length);
+    expect(npcs).toHaveLength(1 + CASE_001_CIVILIANS.length + CASE_001_WITNESSES.length);
     const json = JSON.stringify(room.state.toJSON());
     for (const secret of ["suspicion", "isSubject", "subject", "plan", "evad", "coffee", "Elena"]) expect(json).not.toContain(secret);
     // Every NPC exposes the same field set: nothing marks the Subject.

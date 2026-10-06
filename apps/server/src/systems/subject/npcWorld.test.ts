@@ -1,4 +1,4 @@
-import { CASE_001_CIVILIANS, CASE_001_SUBJECT } from "@vanta/content/server";
+import { CASE_001_CIVILIANS, CASE_001_SUBJECT, CASE_001_WITNESSES } from "@vanta/content/server";
 import { NpcState } from "@vanta/shared";
 import { describe, expect, it } from "vitest";
 import { NpcWorld, type SubjectEvent } from "./npcWorld";
@@ -49,5 +49,29 @@ describe("NpcWorld", () => {
     const w = setup();
     run(w, 60, [{ x: 100, z: 100 }]);
     expect(w.events.some((e) => e.type === "subject.noticed")).toBe(false);
+  });
+});
+
+describe("NpcWorld people", () => {
+  it("keeps witnesses at their workplace", () => {
+    const events: SubjectEvent[] = [];
+    const world = new NpcWorld(undefined, (e) => events.push(e));
+    const npcs = new Map<string, NpcState>();
+    world.populate(npcs);
+    for (let t = 0; t < 600; t++) world.tick(0.1, [], npcs);
+    const standing = CASE_001_WITNESSES.map((w) => w.standAt);
+    for (const pos of standing) expect([...npcs.values()].some((n) => n.x === pos?.x && n.z === pos?.z)).toBe(true);
+  });
+
+  it("makes the Subject notice anyone who talks to them", () => {
+    const events: SubjectEvent[] = [];
+    const world = new NpcWorld([CASE_001_SUBJECT], (e) => events.push(e));
+    const npcs = new Map<string, NpcState>();
+    world.populate(npcs);
+    const [id] = [...npcs.keys()];
+    if (!id) throw new Error("no npc");
+    expect(world.find(id)?.conversation).toBe("subject");
+    world.confront(id, { x: -8, z: 9 });
+    expect(events.map((e) => e.type)).toEqual(["subject.noticed"]);
   });
 });

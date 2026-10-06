@@ -11,6 +11,11 @@ import {
   MSG_PRIVATE_PROFILE,
   MSG_REQUEST_PRIVATE_SYNC,
   MSG_SHARE_ITEM,
+  MSG_DIALOGUE,
+  MSG_TALK,
+  MSG_TALK_CHOICE,
+  MSG_TALK_END,
+  type DialogueView,
   SPRINT_SPEED,
   TICK_RATE,
   WALK_SPEED,
@@ -31,7 +36,7 @@ import { ActionMap } from "./engine/actionMap";
 import { CAMERA_PRESETS, clampPitch, lerpPreset, resolveMode, type CameraPreset } from "./engine/cameraRig";
 import { buildGreybox } from "./game/greybox";
 import { createNpcMesh } from "./game/npcView";
-import { npcInteractables, observationText } from "./game/observe";
+import { npcInteractables } from "./game/observe";
 import { syncSpots, spotInteractables } from "./game/spots";
 import { findInteractable } from "./game/interaction";
 import { connect } from "./game/network";
@@ -98,14 +103,22 @@ const setStatus = (s: string) => status && (status.textContent = s);
 
 let room: Room<GameState> | undefined;
 const session = new SessionStore();
+const leaveTalk = () => {
+  room?.send(MSG_TALK_END);
+  session.update({ dialogue: undefined });
+};
 mountOverlay(
   document.getElementById("ui"),
-  session,
-  (itemId, toCharacterIds) => {
-    const req: ShareRequest = { itemId, toCharacterIds };
-    room?.send(MSG_SHARE_ITEM, req);
+  {
+    onShare: (itemId, toCharacterIds) => {
+      const req: ShareRequest = { itemId, toCharacterIds };
+      room?.send(MSG_SHARE_ITEM, req);
+    },
+    onBoard: (cmd: BoardCommand) => room?.send(MSG_BOARD_COMMAND, cmd),
+    onChoose: (optionId) => room?.send(MSG_TALK_CHOICE, { optionId }),
+    onLeaveTalk: leaveTalk,
   },
-  (cmd: BoardCommand) => room?.send(MSG_BOARD_COMMAND, cmd),
+  session,
 );
 
 // Public room state -> overlay (IGL designation, teammate list), polled at low rate.
@@ -133,6 +146,7 @@ connect()
       if (evidence.length > before && latest) setStatus(`Found: ${latest.item.title}`);
     });
     r.onMessage(MSG_BOARD, (board: Board) => session.update({ board }));
+    r.onMessage(MSG_DIALOGUE, (dialogue: DialogueView) => session.update({ dialogue: dialogue.ended ? undefined : dialogue }));
     r.send(MSG_REQUEST_PRIVATE_SYNC);
     setStatus(`room ${r.roomId} · invite: ${location.href}`);
     const self = r.state.players?.get(r.sessionId);
@@ -243,11 +257,21 @@ renderer.setAnimationLoop((now) => {
   const people = room?.state.npcs ? npcInteractables(room.state.npcs.values()) : [];
   const spots = room?.state.spots ? spotInteractables(room.state.spots.values()) : [];
   const target = findInteractable(pos, facing, [...spots, ...people]);
-  if (prompt) prompt.textContent = target ? `[E] ${target.label}` : "";
-  if (target && input.wasPressed("interact")) {
-    const person = room?.state.npcs.get(target.id);
-    if (person) setStatus(observationText(person));
-    else room?.send(MSG_INTERACT, { targetId: target.id });
+  if (prompt) prompt.textContent = target && !session.get().dialogue ? `[E] ${target.label}` : "";
+  const dialogue = session.get().dialogue;
+  if (dialogue) {
+    // Walking away ends the conversation.
+    const npc = room?.state.npcs.get(dialogue.npcId);
+    if (!npc || Math.hypot(npc.x - pos.x, npc.z - pos.z) > 4) leaveTalk();
+    (["choice1", "choice2", "choice3", "choice4"] as const).forEach((a, i) => {
+      const option = dialogue.options[i];
+      if (option && input.wasPressed(a)) room?.send(MSG_TALK_CHOICE, { optionId: option.id });
+    });
+  } else if (target && input.wasPressed("interact")) {
+    if (room?.state.npcs.has(target.id)) {
+      room.send(MSG_TALK, { npcId: target.id });
+      if (document.pointerLockElement) document.exitPointerLock();
+    } else room?.send(MSG_INTERACT, { targetId: target.id });
   }
 
   const mode = resolveMode(input.isHeld("aim"), input.isHeld("investigate"));

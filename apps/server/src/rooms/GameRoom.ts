@@ -11,6 +11,12 @@ import {
   MSG_INTERACT,
   MSG_KNOWLEDGE,
   MSG_SHARE_ITEM,
+  MSG_DIALOGUE,
+  MSG_TALK,
+  MSG_TALK_CHOICE,
+  MSG_TALK_END,
+  TALK_RANGE,
+  type DialogueView,
   MSG_PRIVATE_PROFILE,
   MSG_REQUEST_PRIVATE_SYNC,
   PLAYER_TOKEN_PATTERN,
@@ -27,7 +33,16 @@ import {
   type InputMessage,
   type JoinOptions,
 } from "@vanta/shared";
-import { CASE_001_EVIDENCE, CASE_001_ITEMS, CASE_001_RULES, type EvidenceSpotDef } from "@vanta/content/server";
+import {
+  CASE_001_CONVERSATIONS,
+  CASE_001_EVIDENCE,
+  CASE_001_EVIDENCE_ITEMS,
+  CASE_001_ITEMS,
+  CASE_001_RULES,
+  type EvidenceSpotDef,
+  type PersonDef,
+} from "@vanta/content/server";
+import { choose, nodeView, type TalkerContext } from "../systems/conversations";
 import { applyBoardCommand, emptyBoard } from "../systems/board";
 import { EvidenceStore, EvidenceWorld } from "../systems/evidence";
 import type { Effect } from "@vanta/case-engine";
@@ -48,6 +63,8 @@ export interface GameRoomOptions {
   rng?: Rng;
   /** Multiplies case time (tests only). */
   caseTimeScale?: number;
+  /** People in the world (tests may override). */
+  people?: readonly PersonDef[];
   /** Multiplies NPC simulation speed (tests only). */
   npcTimeScale?: number;
   /** Receives Subject events (future case engine hook). */
@@ -77,6 +94,8 @@ export class GameRoom extends Room<GameState> {
   private evidenceWorld!: EvidenceWorld;
   private board: Board = emptyBoard();
   private boardIds = 0;
+  /** Open conversations by session ID. */
+  private readonly talks = new Map<string, { npcId: string; conversation: string; node: string }>();
   private caseTimeScale = 1;
   private designatedOnce = false;
   /** Items VANTA has delivered to the IGL role; a new IGL inherits them. */
@@ -92,7 +111,7 @@ export class GameRoom extends Room<GameState> {
     this.caseRunner = new CaseRunner(CASE_001_RULES, (e) => this.applyEffect(e));
     this.setState(new GameState());
     this.npcTimeScale = options.npcTimeScale ?? 1;
-    this.npcWorld = new NpcWorld(undefined, (e) => {
+    this.npcWorld = new NpcWorld(options.people, (e) => {
       console.log(`[NPC] ${e.type}`);
       options.onSubjectEvent?.(e);
       if (e.type === "subject.noticed") this.caseRunner.feed(e.type);
@@ -104,6 +123,9 @@ export class GameRoom extends Room<GameState> {
     this.evidenceWorld.populate(this.state.spots);
     this.onMessage(MSG_INTERACT, (client, raw) => this.handleInteract(client, raw));
     this.onMessage(MSG_BOARD_COMMAND, (client, raw) => this.handleBoard(client, raw));
+    this.onMessage(MSG_TALK, (client, raw) => this.handleTalk(client, raw));
+    this.onMessage(MSG_TALK_CHOICE, (client, raw) => this.handleTalkChoice(client, raw));
+    this.onMessage(MSG_TALK_END, (client) => this.talks.delete(client.sessionId));
     this.onMessage(MSG_REQUEST_PRIVATE_SYNC, (client) => {
       const record = this.characters.get(client.sessionId);
       // Private data goes only to the requesting owner.
@@ -175,6 +197,7 @@ export class GameRoom extends Room<GameState> {
     this.state.players.delete(client.sessionId);
     this.inputs.delete(client.sessionId);
     this.characters.delete(client.sessionId);
+    this.talks.delete(client.sessionId);
     console.log(`[Multiplayer] ${client.sessionId} left ${this.roomId}`);
     if (characterId && this.igl.onRemoved(characterId, this.connectedCharacters())) this.onIglChanged();
   }
@@ -250,6 +273,73 @@ export class GameRoom extends Room<GameState> {
       console.log(`[Evidence] ${characterId} found ${r.def.item.id}`);
       this.caseRunner.feed("evidence.found", { evidenceId: r.def.item.id });
     }
+  }
+
+  private talkerContext(characterId: CharacterId): TalkerContext {
+    const record = [...this.characters.values()].find((r) => r.id === characterId);
+    return {
+      hasEvidence: (id) => !!this.evidence.has(characterId, id),
+      knowsInfo: (id) => !!this.knowledge.get(characterId, id),
+      profession: record?.professionId ?? "",
+    };
+  }
+
+  /** Returns the person if the player is close enough to talk; checked with server positions. */
+  private reachablePerson(sessionId: string, npcId: unknown) {
+    const p = this.state.players.get(sessionId);
+    const person = typeof npcId === "string" ? this.npcWorld.find(npcId) : undefined;
+    if (!p || !person || Math.hypot(person.pos.x - p.x, person.pos.z - p.z) > TALK_RANGE + 0.5) return undefined;
+    return { person, from: { x: p.x, z: p.z } };
+  }
+
+  private sendDialogue(client: Client, view: DialogueView): void {
+    client.send(MSG_DIALOGUE, view);
+  }
+
+  private handleTalk(client: Client, raw: unknown): void {
+    const characterId = this.characters.get(client.sessionId)?.id;
+    const npcId = (raw as { npcId?: unknown } | null)?.npcId;
+    const reach = this.reachablePerson(client.sessionId, npcId);
+    if (!characterId || !reach || typeof npcId !== "string") return;
+    const def = CASE_001_CONVERSATIONS.get(reach.person.conversation);
+    const view = def && nodeView(def, def.start, this.talkerContext(characterId));
+    if (!def || !view) return;
+    this.talks.set(client.sessionId, { npcId, conversation: def.id, node: def.start });
+    this.npcWorld.confront(npcId, reach.from);
+    this.sendDialogue(client, { npcId, observed: reach.person.observed, ...view, ended: false });
+    this.caseRunner.feed("conversation.started", { conversation: def.id });
+  }
+
+  private handleTalkChoice(client: Client, raw: unknown): void {
+    const talk = this.talks.get(client.sessionId);
+    const characterId = this.characters.get(client.sessionId)?.id;
+    if (!talk || !characterId) return;
+    const reach = this.reachablePerson(client.sessionId, talk.npcId);
+    const def = CASE_001_CONVERSATIONS.get(talk.conversation);
+    if (!reach || !def) {
+      // Walked away mid-conversation.
+      this.talks.delete(client.sessionId);
+      this.sendDialogue(client, { npcId: talk.npcId, observed: "", line: "", options: [], ended: true });
+      return;
+    }
+    const ctx = this.talkerContext(characterId);
+    const r = choose(def, talk.node, (raw as { optionId?: unknown } | null)?.optionId, ctx);
+    if (!r.ok) return;
+    this.caseRunner.feed("conversation.choice", { conversation: def.id, option: `${talk.node}.${r.option.id}` });
+    const testimony = r.option.gives ? CASE_001_EVIDENCE_ITEMS.get(r.option.gives) : undefined;
+    if (testimony && this.evidence.grant(characterId, { item: testimony, foundBy: characterId, foundAt: Date.now() })) {
+      client.send(MSG_EVIDENCE, this.evidence.list(characterId));
+      console.log(`[Evidence] ${characterId} heard ${testimony.id}`);
+      this.caseRunner.feed("evidence.found", { evidenceId: testimony.id });
+    }
+    const view = r.next ? nodeView(def, r.next, ctx) : undefined;
+    if (!view || !r.next) {
+      this.talks.delete(client.sessionId);
+      this.sendDialogue(client, { npcId: talk.npcId, observed: reach.person.observed, line: "", options: [], ended: true });
+      return;
+    }
+    talk.node = r.next;
+    this.sendDialogue(client, { npcId: talk.npcId, observed: reach.person.observed, ...view, ended: false });
   }
 
   /** Team case board: shared with everyone in the room once something is pinned. */
