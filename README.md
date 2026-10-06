@@ -4,6 +4,10 @@
 
 Ajan rehberi: [CLAUDE.md](CLAUDE.md) · Oturum komutları: [Docs/OTURUM_KOMUTLARI.md](Docs/OTURUM_KOMUTLARI.md)
 
+## Gereksinimler
+
+Node.js **22 veya üstü** (önerilen: güncel LTS) ve pnpm 10. Daha eski bir Node ile `pnpm install` açık bir sürüm hatası verir.
+
 ## Arkadaşlarla oynamak
 
 `pnpm dev` istemciyi tüm ağ arayüzlerinde **5173** portundan açar; oyun sunucusu trafiği de aynı porttan (`/colyseus`) geçer. Dışarıya yalnızca **5173** açılması yeterlidir.
