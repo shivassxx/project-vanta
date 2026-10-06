@@ -6,7 +6,7 @@
 - [x] M3 Characters — persistent character IDs (per player token), random private professions, campaign registration (in-memory until M9), private profile sent only to its owner
 - [x] M4 VANTA + IGL — opaque IGL designation, one-way Subject signal to IGL only, per-item per-teammate share UI (React), temporary IGL on disconnect with re-evaluation on return
 - [x] M5 Subject — Subject + 3 civilians in the world, server-side schedule, identification by face/clothing (no markers), follow, noticing obvious surveillance + route change
-- [ ] M6 Case engine
+- [x] M6 Case engine — pure data-driven events → conditions → actions engine with timers, stages, outcomes, validation; CASE_001 rules as data drive the VANTA signal, Subject pressure and the delay consequence
 - [ ] M7 Investigation
 - [ ] M8 Consequences
 - [ ] M9 Save/Load

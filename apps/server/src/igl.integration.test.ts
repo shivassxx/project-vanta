@@ -11,7 +11,7 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 let server: Server;
 beforeAll(async () => {
   // rng 0: first connected character becomes IGL; a returning IGL is always restored.
-  server = await startGameServer(PORT, { vantaDelayMs: 50, rng: () => 0 });
+  server = await startGameServer(PORT, { caseTimeScale: 100, rng: () => 0 });
 });
 afterAll(async () => {
   await server.gracefullyShutdown(false);

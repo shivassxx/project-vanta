@@ -12,6 +12,7 @@
     "@colyseus/core": "^0.16.0",
     "@colyseus/schema": "^3.0.0",
     "@colyseus/ws-transport": "^0.16.0",
+    "@vanta/case-engine": "workspace:*",
     "@vanta/content": "workspace:*",
     "@vanta/shared": "workspace:*"
   },

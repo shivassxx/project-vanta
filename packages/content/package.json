@@ -9,6 +9,7 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
+    "@vanta/case-engine": "workspace:*",
     "@vanta/shared": "workspace:*"
   },
   "exports": {

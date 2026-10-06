@@ -55,3 +55,11 @@
 - Tests (57 passing): ring paths, awareness rules (7), brain schedule + evade (4), NpcWorld (4), observe text, appearance, integration: 4 people synced with identical field sets and no leaked secrets, Subject walks to the coffee shop on schedule.
 - Known gaps: Subject cannot yet leave the district, call police or switch vehicle (M8); evading is a single reaction; no collision between NPCs and players; observe text is only shown in the status line.
 - Next: M6 case engine.
+
+## 2026-10-06 — M6 Case engine
+- `@vanta/case-engine` (pure, no I/O): `CaseDef` = rules `{ on, when, do, once }`; conditions (flag, counter, stage, payload, all/any/not); actions (setFlag, increment, setStage, start/cancelTimer, setOutcome, effect). `dispatch()` is pure, fires due timers first, cascades `stage:<name>` / `timer:<id>` events with a loop guard, stops after an outcome. State is plain JSON with stable IDs (ready for M9 saves). `validateCaseDef()` checks duplicate IDs, unknown stages, never-started timers, empty rules.
+- CASE_001 rules (`@vanta/content/server`): designation -> 4 s -> first VANTA signal (stage `locate`); first notice -> `wary`, second -> `spooked` (+ `subject.alert` effects); park meeting flag from the Subject's schedule note; after 15 min without progress -> `relocated` + VANTA sends an updated location (delay consequence + location change).
+- Server: `CaseRunner` keeps case time, feeds `igl.designated`, `subject.*`, `info.shared`, applies `vanta.deliver` effects (IGL only; a new IGL inherits delivered items). The hardcoded signal timer is gone.
+- Tests (78 passing): engine (12), CASE_001 content (6), end-to-end delay consequence reaching only the IGL; existing IGL tests now run through the engine.
+- Known gaps: `subject.alert` and outcomes are only logged (M8); no player-action events yet (evidence/conversations arrive in M7); no outcomes in CASE_001 yet.
+- Next: M7 investigation.

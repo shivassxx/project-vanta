@@ -22,7 +22,9 @@ import {
   type InputMessage,
   type JoinOptions,
 } from "@vanta/shared";
-import { CASE_001_SUBJECT_SIGNAL } from "@vanta/content";
+import { CASE_001_ITEMS, CASE_001_RULES } from "@vanta/content/server";
+import type { Effect } from "@vanta/case-engine";
+import { CaseRunner } from "../systems/cases/caseRunner";
 import { CharacterService, type Rng } from "../systems/characters";
 import { IglSystem } from "../systems/igl";
 import { NpcWorld, type SubjectEvent } from "../systems/subject/npcWorld";
@@ -34,8 +36,8 @@ export interface GameRoomOptions {
   characters: CharacterService;
   knowledge: KnowledgeStore;
   rng?: Rng;
-  /** Delay between IGL designation and the first VANTA signal. */
-  vantaDelayMs?: number;
+  /** Multiplies case time (tests only). */
+  caseTimeScale?: number;
   /** Multiplies NPC simulation speed (tests only). */
   npcTimeScale?: number;
   /** Receives Subject events (future case engine hook). */
@@ -60,8 +62,11 @@ export class GameRoom extends Room<GameState> {
   private characterService!: CharacterService;
   private knowledge!: KnowledgeStore;
   private igl!: IglSystem;
-  private vantaDelayMs = 4000;
-  private signalState: "idle" | "scheduled" | "sent" = "idle";
+  private caseRunner!: CaseRunner;
+  private caseTimeScale = 1;
+  private designatedOnce = false;
+  /** Items VANTA has delivered to the IGL role; a new IGL inherits them. */
+  private readonly deliveredToIgl: string[] = [];
   private npcWorld!: NpcWorld;
   private npcTimeScale = 1;
 
@@ -69,12 +74,15 @@ export class GameRoom extends Room<GameState> {
     this.characterService = options.characters;
     this.knowledge = options.knowledge;
     this.igl = new IglSystem(options.rng ?? Math.random, MIN_PLAYERS);
-    this.vantaDelayMs = options.vantaDelayMs ?? this.vantaDelayMs;
+    this.caseTimeScale = options.caseTimeScale ?? 1;
+    this.caseRunner = new CaseRunner(CASE_001_RULES, (e) => this.applyEffect(e));
     this.setState(new GameState());
     this.npcTimeScale = options.npcTimeScale ?? 1;
     this.npcWorld = new NpcWorld(undefined, (e) => {
       console.log(`[NPC] ${e.type}`);
       options.onSubjectEvent?.(e);
+      if (e.type === "subject.noticed") this.caseRunner.feed(e.type);
+      else this.caseRunner.feed(e.type, { node: e.node, note: e.note ?? "" });
     });
     this.npcWorld.populate(this.state.npcs);
     this.onMessage(MSG_REQUEST_PRIVATE_SYNC, (client) => {
@@ -174,24 +182,38 @@ export class GameRoom extends Room<GameState> {
     this.state.iglCharacterId = igl ?? "";
     console.log(`[VANTA] IGL is now ${igl ?? "none"} in ${this.roomId}`);
     if (!igl) return;
-    if (this.signalState === "sent") {
-      // A new IGL inherits what VANTA had already delivered to the role.
-      this.deliverSignal(igl);
-    } else if (this.signalState === "idle") {
-      this.signalState = "scheduled";
-      this.clock.setTimeout(() => {
-        this.signalState = "sent";
-        if (this.igl.igl) this.deliverSignal(this.igl.igl);
-      }, this.vantaDelayMs);
+    if (!this.designatedOnce) {
+      this.designatedOnce = true;
+      this.caseRunner.feed("igl.designated");
+    }
+    // A new IGL inherits what VANTA had already delivered to the role.
+    this.deliverToIgl(igl, this.deliveredToIgl);
+  }
+
+  private applyEffect(e: Effect): void {
+    if (e.type === "vanta.deliver") {
+      const items = (e.payload?.items as string[] | undefined) ?? [];
+      this.deliveredToIgl.push(...items.filter((id) => !this.deliveredToIgl.includes(id)));
+      if (this.igl.igl) this.deliverToIgl(this.igl.igl, items);
+    } else if (e.type === "subject.alert") {
+      console.log(`[NPC] subject alert: ${String(e.payload?.level)} (behavior change arrives in M8)`);
+    } else if (e.type === "case.outcome") {
+      console.log(`[Cases] outcome ${String(e.payload?.outcome)}`);
+    } else {
+      console.log(`[Cases] unhandled effect ${e.type}`);
     }
   }
 
   /** One-way: VANTA sends Subject info to the IGL only. */
-  private deliverSignal(characterId: CharacterId): void {
+  private deliverToIgl(characterId: CharacterId, itemIds: readonly string[]): void {
+    if (itemIds.length === 0) return;
     const now = Date.now();
-    for (const item of CASE_001_SUBJECT_SIGNAL) this.knowledge.grant(characterId, { item, source: "vanta", receivedAt: now });
+    for (const id of itemIds) {
+      const item = CASE_001_ITEMS.get(id);
+      if (item) this.knowledge.grant(characterId, { item, source: "vanta", receivedAt: now });
+    }
     this.pushKnowledge(characterId);
-    console.log(`[VANTA] signal delivered to ${characterId}`);
+    console.log(`[VANTA] delivered ${itemIds.length} item(s) to ${characterId}`);
   }
 
   private handleShare(client: Client, raw: unknown): void {
@@ -210,6 +232,7 @@ export class GameRoom extends Room<GameState> {
       if (this.knowledge.grant(to, { item, source: "teammate", fromCharacterId: sender, receivedAt: now })) this.pushKnowledge(to);
     }
     console.log(`[Investigation] ${sender} shared ${item.id} with ${check.recipients.length} teammate(s)`);
+    this.caseRunner.feed("info.shared", { itemId: item.id });
   }
 
   private tick(dt: number): void {
@@ -218,6 +241,7 @@ export class GameRoom extends Room<GameState> {
       if (p.connected) observers.push({ pos: { x: p.x, z: p.z }, sprinting: this.inputs.get(id)?.sprint === true && this.moving(id) });
     });
     this.npcWorld.tick(dt * this.npcTimeScale, observers, this.state.npcs);
+    this.caseRunner.advance(dt * this.caseTimeScale);
     this.state.players.forEach((p, id) => {
       const input = this.inputs.get(id);
       if (!input) return;

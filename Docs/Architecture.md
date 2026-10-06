@@ -18,3 +18,4 @@ See `CLAUDE.md` section 3 for the stack and rules. Decisions made so far:
 - Client UI overlays are React (`apps/client/src/ui`), fed by a small `SessionStore` (useSyncExternalStore); the Three.js loop stays outside React.
 - Network entry: in dev, the client reaches the game server through the Vite proxy at `/colyseus` on the page's own origin (single public port 5173). A production deployment will do the same through Caddy.
 - Server-only content (which person is the Subject, schedules) is exported from `@vanta/content/server`; client code must only import `@vanta/content`. NPC public state never contains labels or hidden state (suspicion, plans).
+- Cases: `@vanta/case-engine` is a pure reducer (`dispatch(def, state, event) -> { state, effects }`). Case content is data in `@vanta/content/server`; the server `CaseRunner` translates game activity into events and effects into game actions. Never put case logic in room code.
