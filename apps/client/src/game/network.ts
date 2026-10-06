@@ -1,5 +1,6 @@
 import { Client, type Room } from "colyseus.js";
-import { DEFAULT_SERVER_PORT, GAME_ROOM_NAME, type GameState } from "@vanta/shared";
+import { DEFAULT_SERVER_PORT, GAME_ROOM_NAME, type GameState, type JoinOptions } from "@vanta/shared";
+import { getPlayerToken } from "./profile";
 
 const TOKEN_KEY = "vanta.reconnectionToken";
 
@@ -38,7 +39,10 @@ export async function connect(): Promise<Room<GameState>> {
   }
   if (!room) {
     const roomId = location.hash.slice(1);
-    room = roomId ? await client.joinById<GameState>(roomId) : await client.joinOrCreate<GameState>(GAME_ROOM_NAME);
+    const options: JoinOptions = { playerToken: getPlayerToken() };
+    room = roomId
+      ? await client.joinById<GameState>(roomId, options)
+      : await client.joinOrCreate<GameState>(GAME_ROOM_NAME, options);
   }
   writeToken(room.reconnectionToken);
   location.hash = room.roomId;

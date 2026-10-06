@@ -3,7 +3,7 @@
 - [x] M0 Foundation — monorepo, strict TS, lint, Vitest, client + server via `pnpm dev`, Docs
 - [x] M1 Third-person core — action-map input, kinematic movement + box colliders, 3 camera modes, interaction framework, capsule in greybox
 - [x] M2 Multiplayer — create/join (invite link), 2–6 synced players, server-authoritative movement, 20 s reconnect window, headless bots
-- [ ] M3 Characters
+- [x] M3 Characters — persistent character IDs (per player token), random private professions, campaign registration (in-memory until M9), private profile sent only to its owner
 - [ ] M4 VANTA + IGL
 - [ ] M5 Subject
 - [ ] M6 Case engine

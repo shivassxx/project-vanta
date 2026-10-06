@@ -9,12 +9,14 @@
       canvas { display: block; }
       #status { position: fixed; top: 8px; left: 8px; color: #8fa3b5; font: 12px monospace; }
       #prompt { position: fixed; bottom: 18%; left: 50%; transform: translateX(-50%); color: #e6edf3; font: 16px monospace; }
+      #profile { position: fixed; top: 8px; right: 8px; max-width: 340px; color: #c9b27c; font: 12px monospace; text-align: right; }
       #help { position: fixed; bottom: 8px; left: 8px; color: #5d6b78; font: 11px monospace; }
     </style>
   </head>
   <body>
     <div id="status">server: connecting…</div>
     <div id="prompt"></div>
+    <div id="profile"></div>
     <div id="help">WASD move · Shift sprint · click = mouse look · RMB shoulder · F investigate · E interact</div>
     <script type="module" src="/src/main.ts"></script>
   </body>

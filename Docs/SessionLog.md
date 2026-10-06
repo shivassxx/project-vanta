@@ -22,3 +22,12 @@
 - Tests (15 passing): input sanitizing, 2-player sync, speed cap vs. cheating input, 6-player cap, drop + reconnect keeps the same session. Verified in headless Chromium: browser player + 2 bots + second tab via invite link in one room.
 - Known gaps: camera clips through walls, no input-replay reconciliation, no gamepad.
 - Next: M3 characters.
+
+## 2026-10-06 — M3 Characters
+- `@vanta/content`: 13 profession definitions (access + restriction, not RPG stats).
+- Server: `CharacterService` + `CharacterRepository` interface (in-memory impl). A client-held secret `playerToken` (localStorage) maps to a persistent `char_<hex>` ID registered in `campaign_dev`; profession is rolled once at creation.
+- Information filtering: public schema holds only `characterId`; the profession goes out as a per-client `privateProfile` message, sent on the owner's request (also after reconnect). Joins without a valid token are rejected; a second live session of the same character is rejected; a fresh join replaces a disconnected stale session.
+- Client: private background panel (top right).
+- Tests (23 passing): profession roll mapping, one character per token, profile shape, token validation, owner-only delivery, no profession in public state, same token -> same character, duplicate session rejected, profile re-sent after reconnect. Verified in headless Chromium.
+- Known gaps: characters are lost on server restart (SQLite persistence is M9); no appearance customization or pre-existing relationships yet (Backlog).
+- Next: M4 VANTA + IGL.

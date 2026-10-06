@@ -3,6 +3,8 @@ import {
   GAME_NAME,
   GREYBOX_WALLS,
   MSG_INPUT,
+  MSG_PRIVATE_PROFILE,
+  MSG_REQUEST_PROFILE,
   SPRINT_SPEED,
   TICK_RATE,
   WALK_SPEED,
@@ -10,6 +12,7 @@ import {
   worldDirection,
   type GameState,
   type InputMessage,
+  type PrivateProfile,
   type Vec2,
 } from "@vanta/shared";
 import type { Room } from "colyseus.js";
@@ -18,6 +21,7 @@ import { CAMERA_PRESETS, clampPitch, lerpPreset, resolveMode, type CameraPreset 
 import { buildGreybox } from "./game/greybox";
 import { findInteractable } from "./game/interaction";
 import { connect } from "./game/network";
+import { renderProfile } from "./game/profile";
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x15191e);
@@ -76,6 +80,8 @@ let room: Room<GameState> | undefined;
 connect()
   .then((r) => {
     room = r;
+    r.onMessage(MSG_PRIVATE_PROFILE, (profile: PrivateProfile) => renderProfile(document.getElementById("profile"), profile));
+    r.send(MSG_REQUEST_PROFILE);
     setStatus(`room ${r.roomId} · invite: ${location.href}`);
     const self = r.state.players?.get(r.sessionId);
     if (self) {

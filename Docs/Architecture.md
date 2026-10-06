@@ -12,3 +12,5 @@ See `CLAUDE.md` section 3 for the stack and rules. Decisions made so far:
 - Client: Vite + Three.js. React overlay arrives with the first UI milestone.
 - Tests: Vitest from the repo root (`pnpm test`), files at `{apps,packages}/*/src/**/*.test.ts`.
 - Dev: `pnpm dev` runs server (:2567) and client (:5173) together.
+- Identity: a client-held secret `playerToken` maps to a stable `characterId`. The token is never broadcast or logged. Private character data (profession) is only sent via per-client messages.
+- Persistence goes through repository interfaces in `apps/server/src/persistence/` (in-memory now, SQLite in M9).

@@ -29,6 +29,9 @@ importers:
 
   apps/client:
     dependencies:
+      '@vanta/content':
+        specifier: workspace:*
+        version: link:../../packages/content
       '@vanta/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -57,6 +60,9 @@ importers:
       '@colyseus/ws-transport':
         specifier: ^0.16.0
         version: 0.16.5(@colyseus/core@0.16.26(@colyseus/schema@3.0.76)(@pm2/io@6.1.0))
+      '@vanta/content':
+        specifier: workspace:*
+        version: link:../../packages/content
       '@vanta/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -86,7 +92,11 @@ importers:
 
   packages/case-engine: {}
 
-  packages/content: {}
+  packages/content:
+    dependencies:
+      '@vanta/shared':
+        specifier: workspace:*
+        version: link:../shared
 
   packages/shared:
     dependencies:

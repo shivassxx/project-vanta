@@ -6,3 +6,4 @@ export const MAX_PLAYERS = 6;
 export * from "./movement";
 export * from "./network";
 export * from "./world";
+export * from "./characters";

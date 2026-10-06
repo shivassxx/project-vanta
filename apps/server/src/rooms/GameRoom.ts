@@ -4,6 +4,9 @@ import {
   GameState,
   MAX_PLAYERS,
   MSG_INPUT,
+  MSG_PRIVATE_PROFILE,
+  MSG_REQUEST_PROFILE,
+  PLAYER_TOKEN_PATTERN,
   PlayerState,
   RECONNECT_WINDOW_SECONDS,
   SPAWN_POINTS,
@@ -13,7 +16,14 @@ import {
   moveWithCollision,
   worldDirection,
   type InputMessage,
+  type JoinOptions,
 } from "@vanta/shared";
+import { CharacterService } from "../systems/characters";
+import type { CharacterRecord } from "../persistence/CharacterRepository";
+
+export interface GameRoomOptions {
+  characters: CharacterService;
+}
 
 const finite = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n);
 
@@ -29,9 +39,17 @@ export function sanitizeInput(raw: unknown): InputMessage | undefined {
 export class GameRoom extends Room<GameState> {
   override maxClients = MAX_PLAYERS;
   private readonly inputs = new Map<string, InputMessage>();
+  private readonly characters = new Map<string, CharacterRecord>();
+  private characterService!: CharacterService;
 
-  override onCreate(): void {
+  override onCreate(options: GameRoomOptions): void {
+    this.characterService = options.characters;
     this.setState(new GameState());
+    this.onMessage(MSG_REQUEST_PROFILE, (client) => {
+      const record = this.characters.get(client.sessionId);
+      // Private data goes only to the requesting owner.
+      if (record) client.send(MSG_PRIVATE_PROFILE, CharacterService.toPrivateProfile(record));
+    });
     this.onMessage(MSG_INPUT, (client, raw) => {
       const input = sanitizeInput(raw);
       if (input) this.inputs.set(client.sessionId, input);
@@ -40,9 +58,26 @@ export class GameRoom extends Room<GameState> {
     console.log(`[Multiplayer] room ${this.roomId} created`);
   }
 
-  override onJoin(client: Client): void {
+  override onAuth(_client: Client, options: JoinOptions): boolean {
+    if (typeof options?.playerToken !== "string" || !PLAYER_TOKEN_PATTERN.test(options.playerToken)) {
+      throw new Error("invalid player token");
+    }
+    return true;
+  }
+
+  override onJoin(client: Client, options: JoinOptions): void {
+    const record = this.characterService.getOrCreate(options.playerToken ?? "");
+    for (const [sessionId, other] of this.characters) {
+      if (other.id !== record.id) continue;
+      if (this.state.players.get(sessionId)?.connected) throw new Error("character already in room");
+      // Same character rejoining instead of reconnecting: replace the stale session.
+      this.state.players.delete(sessionId);
+      this.characters.delete(sessionId);
+    }
+    this.characters.set(client.sessionId, record);
     const p = new PlayerState();
     p.id = client.sessionId;
+    p.characterId = record.id;
     const spawn = SPAWN_POINTS[this.state.players.size % SPAWN_POINTS.length];
     p.x = spawn?.x ?? 0;
     p.z = spawn?.z ?? 0;
@@ -56,7 +91,12 @@ export class GameRoom extends Room<GameState> {
       p.connected = false;
       this.inputs.delete(client.sessionId);
       try {
-        await this.allowReconnection(client, RECONNECT_WINDOW_SECONDS);
+        const back = await this.allowReconnection(client, RECONNECT_WINDOW_SECONDS);
+        if (!this.state.players.has(client.sessionId)) {
+          // Session was replaced by a fresh join of the same character.
+          back.leave();
+          return;
+        }
         p.connected = true;
         console.log(`[Multiplayer] ${client.sessionId} reconnected`);
         return;
@@ -66,6 +106,7 @@ export class GameRoom extends Room<GameState> {
     }
     this.state.players.delete(client.sessionId);
     this.inputs.delete(client.sessionId);
+    this.characters.delete(client.sessionId);
     console.log(`[Multiplayer] ${client.sessionId} left ${this.roomId}`);
   }
 

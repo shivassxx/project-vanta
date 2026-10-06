@@ -21,6 +21,8 @@ export const MSG_INPUT = "input";
 // (tsc, Vite, tsx) compiles them identically.
 export class PlayerState extends Schema {
   declare id: string;
+  /** Stable public character ID. Private data (profession etc.) is never stored here. */
+  declare characterId: string;
   declare x: number;
   declare z: number;
   declare facing: number;
@@ -31,6 +33,7 @@ export class PlayerState extends Schema {
   constructor() {
     super();
     this.id = "";
+    this.characterId = "";
     this.x = 0;
     this.z = 0;
     this.facing = 0;
@@ -40,6 +43,7 @@ export class PlayerState extends Schema {
 }
 defineTypes(PlayerState, {
   id: "string",
+  characterId: "string",
   x: "number",
   z: "number",
   facing: "number",

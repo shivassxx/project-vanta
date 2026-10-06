@@ -9,6 +9,7 @@
     "typecheck": "tsc -p ."
   },
   "dependencies": {
+    "@vanta/content": "workspace:*",
     "@vanta/shared": "workspace:*",
     "colyseus.js": "^0.16.22",
     "three": "^0.170.0"
