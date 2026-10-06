@@ -16,3 +16,4 @@ See `CLAUDE.md` section 3 for the stack and rules. Decisions made so far:
 - Persistence goes through repository interfaces in `apps/server/src/persistence/` (in-memory now, SQLite in M9).
 - Secret game knowledge (Subject info, shared items) lives in the server `KnowledgeStore`, keyed by character, and reaches a client only as that character's own `knowledge` list. Public schema state only says who the IGL is.
 - Client UI overlays are React (`apps/client/src/ui`), fed by a small `SessionStore` (useSyncExternalStore); the Three.js loop stays outside React.
+- Network entry: in dev, the client reaches the game server through the Vite proxy at `/colyseus` on the page's own origin (single public port 5173). A production deployment will do the same through Caddy.

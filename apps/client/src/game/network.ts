@@ -1,8 +1,11 @@
 import { Client, type Room } from "colyseus.js";
-import { DEFAULT_SERVER_PORT, GAME_ROOM_NAME, type GameState, type JoinOptions } from "@vanta/shared";
+import { GAME_ROOM_NAME, type GameState, type JoinOptions } from "@vanta/shared";
 import { getPlayerToken } from "./profile";
 
 const TOKEN_KEY = "vanta.reconnectionToken";
+
+/** Game server is reached through the page's own origin (Vite proxies /colyseus). */
+export const GAME_ENDPOINT = `${location.protocol}//${location.host}/colyseus`;
 
 function readToken(): string | null {
   try {
@@ -26,7 +29,7 @@ function writeToken(token: string | null): void {
  * room in the URL hash, or creates/joins a game room.
  */
 export async function connect(): Promise<Room<GameState>> {
-  const client = new Client(`ws://${location.hostname}:${DEFAULT_SERVER_PORT}`);
+  const client = new Client(GAME_ENDPOINT);
   const token = readToken();
   let room: Room<GameState> | undefined;
   if (token) {

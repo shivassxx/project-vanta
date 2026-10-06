@@ -42,3 +42,7 @@
 - Verified in headless Chromium with two human tabs.
 - Known gaps: knowledge is in memory (M9); non-IGL players cannot forward info yet (phone, M7); signal content is fixed CASE_001 data (case engine, M6).
 - Next: M5 Subject.
+
+## 2026-10-06 — Exposing the game for remote playtests
+- Vite dev server listens on all interfaces (`host: true`, `allowedHosts: true`) and proxies `/colyseus` (HTTP + WebSocket) to the game server. The client connects to its own origin, so one public port (5173) is enough; works behind port forwarding or a tunnel.
+- Verified: page, matchmaking and WebSocket game traffic over the machine's network IP (bots + two Chromium players, IGL share). In the cloud sandbox the browser had to bypass the sandbox HTTP proxy, which rejects WebSocket upgrades; not relevant on a normal network.
