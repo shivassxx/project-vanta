@@ -5,3 +5,8 @@ dist/
 .DS_Store
 *.sqlite
 saves/
+
+.vite/
+*.tsbuildinfo
+coverage/
+.env.*

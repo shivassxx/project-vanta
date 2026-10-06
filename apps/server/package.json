@@ -1,0 +1,26 @@
+{
+  "name": "@vanta/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p .",
+    "typecheck": "tsc -p ."
+  },
+  "dependencies": {
+    "@colyseus/core": "^0.16.0",
+    "@colyseus/schema": "^3.0.0",
+    "@colyseus/ws-transport": "^0.16.0",
+    "@vanta/case-engine": "workspace:*",
+    "@vanta/content": "workspace:*",
+    "@vanta/shared": "workspace:*",
+    "better-sqlite3": "^12.11.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@vanta/bots": "workspace:*",
+    "colyseus.js": "^0.16.22",
+    "tsx": "^4.19.0"
+  }
+}
