@@ -1,7 +1,7 @@
 # Roadmap
 
 - [x] M0 Foundation — monorepo, strict TS, lint, Vitest, client + server via `pnpm dev`, Docs
-- [ ] M1 Third-person core
+- [x] M1 Third-person core — action-map input, kinematic movement + box colliders, 3 camera modes, interaction framework, capsule in greybox
 - [ ] M2 Multiplayer
 - [ ] M3 Characters
 - [ ] M4 VANTA + IGL
