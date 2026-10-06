@@ -3,11 +3,15 @@ import { randomBytes } from "node:crypto";
 import {
   GAME_ROOM_NAME,
   MSG_INPUT,
+  MSG_KNOWLEDGE,
   MSG_PRIVATE_PROFILE,
-  MSG_REQUEST_PROFILE,
+  MSG_SHARE_ITEM,
+  MSG_REQUEST_PRIVATE_SYNC,
   type GameState,
   type InputMessage,
+  type KnownInfo,
   type PrivateProfile,
+  type ShareRequest,
 } from "@vanta/shared";
 
 export interface BotOptions {
@@ -27,6 +31,7 @@ export class Bot {
   /** Every message this bot received, by type (used to test information filtering). */
   readonly received: { type: string | number; message: unknown }[] = [];
   profile?: PrivateProfile;
+  knowledge: KnownInfo[] = [];
 
   constructor(private readonly opts: BotOptions) {
     this.client = new Client(opts.endpoint);
@@ -47,8 +52,9 @@ export class Bot {
     room.onMessage("*", (type, message) => {
       this.received.push({ type, message });
       if (type === MSG_PRIVATE_PROFILE) this.profile = message as PrivateProfile;
+      if (type === MSG_KNOWLEDGE) this.knowledge = message as KnownInfo[];
     });
-    room.send(MSG_REQUEST_PROFILE);
+    room.send(MSG_REQUEST_PRIVATE_SYNC);
   }
 
   /** Simulates a network drop (non-consented leave). Returns the reconnection token. */
@@ -71,6 +77,19 @@ export class Bot {
   /** Raw send, also used by tests to try illegal input. */
   sendInput(partial: Partial<InputMessage> = {}): void {
     this.room?.send(MSG_INPUT, { seq: ++this.seq, x: 0, y: 1, yaw: 0, sprint: false, ...partial });
+  }
+
+  get characterId(): string {
+    return this.profile?.characterId ?? "";
+  }
+
+  isIgl(): boolean {
+    return !!this.characterId && this.room?.state.iglCharacterId === this.characterId;
+  }
+
+  share(itemId: string, toCharacterIds: string[]): void {
+    const req: ShareRequest = { itemId, toCharacterIds };
+    this.room?.send(MSG_SHARE_ITEM, req);
   }
 
   position(): { x: number; z: number } | undefined {

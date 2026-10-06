@@ -53,10 +53,13 @@ defineTypes(PlayerState, {
 
 export class GameState extends Schema {
   declare players: MapSchema<PlayerState>;
+  /** Public: who VANTA designated. Never why. Empty when none. */
+  declare iglCharacterId: string;
 
   constructor() {
     super();
     this.players = new MapSchema<PlayerState>();
+    this.iglCharacterId = "";
   }
 }
-defineTypes(GameState, { players: { map: PlayerState } });
+defineTypes(GameState, { players: { map: PlayerState }, iglCharacterId: "string" });

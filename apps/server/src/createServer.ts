@@ -5,14 +5,17 @@ import { GAME_ROOM_NAME } from "@vanta/shared";
 import { InMemoryCharacterRepository } from "./persistence/CharacterRepository";
 import { GameRoom, type GameRoomOptions } from "./rooms/GameRoom";
 import { CharacterService } from "./systems/characters";
+import { KnowledgeStore } from "./systems/knowledge";
 
 /** Single development campaign until campaign selection exists. */
 export const DEV_CAMPAIGN_ID = "campaign_dev";
 
-export async function startGameServer(
-  port: number,
-  characters = new CharacterService(new InMemoryCharacterRepository(), DEV_CAMPAIGN_ID),
-): Promise<Server> {
+export async function startGameServer(port: number, overrides: Partial<GameRoomOptions> = {}): Promise<Server> {
+  const roomOptions: GameRoomOptions = {
+    characters: new CharacterService(new InMemoryCharacterRepository(), DEV_CAMPAIGN_ID),
+    knowledge: new KnowledgeStore(),
+    ...overrides,
+  };
   const httpServer = createServer((req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     if (req.url === "/health") {
@@ -24,7 +27,6 @@ export async function startGameServer(
     res.end();
   });
   const gameServer = new Server({ transport: new WebSocketTransport({ server: httpServer }) });
-  const roomOptions: GameRoomOptions = { characters };
   gameServer.define(GAME_ROOM_NAME, GameRoom, roomOptions);
   await gameServer.listen(port);
   return gameServer;

@@ -3,8 +3,10 @@ import {
   GAME_NAME,
   GREYBOX_WALLS,
   MSG_INPUT,
+  MSG_KNOWLEDGE,
   MSG_PRIVATE_PROFILE,
-  MSG_REQUEST_PROFILE,
+  MSG_REQUEST_PRIVATE_SYNC,
+  MSG_SHARE_ITEM,
   SPRINT_SPEED,
   TICK_RATE,
   WALK_SPEED,
@@ -12,7 +14,9 @@ import {
   worldDirection,
   type GameState,
   type InputMessage,
+  type KnownInfo,
   type PrivateProfile,
+  type ShareRequest,
   type Vec2,
 } from "@vanta/shared";
 import type { Room } from "colyseus.js";
@@ -21,7 +25,8 @@ import { CAMERA_PRESETS, clampPitch, lerpPreset, resolveMode, type CameraPreset 
 import { buildGreybox } from "./game/greybox";
 import { findInteractable } from "./game/interaction";
 import { connect } from "./game/network";
-import { renderProfile } from "./game/profile";
+import { SessionStore, type Teammate } from "./game/session";
+import { mountOverlay } from "./ui/mount";
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x15191e);
@@ -77,11 +82,31 @@ const status = document.getElementById("status");
 const setStatus = (s: string) => status && (status.textContent = s);
 
 let room: Room<GameState> | undefined;
+const session = new SessionStore();
+mountOverlay(document.getElementById("ui"), session, (itemId, toCharacterIds) => {
+  const req: ShareRequest = { itemId, toCharacterIds };
+  room?.send(MSG_SHARE_ITEM, req);
+});
+
+// Public room state -> overlay (IGL designation, teammate list), polled at low rate.
+let lastPublic = "";
+setInterval(() => {
+  if (!room?.state.players) return;
+  const teammates: Teammate[] = [];
+  room.state.players.forEach((p) => teammates.push({ characterId: p.characterId, connected: p.connected }));
+  const iglCharacterId = room.state.iglCharacterId;
+  const key = JSON.stringify([iglCharacterId, teammates]);
+  if (key !== lastPublic) {
+    lastPublic = key;
+    session.update({ iglCharacterId, teammates });
+  }
+}, 250);
 connect()
   .then((r) => {
     room = r;
-    r.onMessage(MSG_PRIVATE_PROFILE, (profile: PrivateProfile) => renderProfile(document.getElementById("profile"), profile));
-    r.send(MSG_REQUEST_PROFILE);
+    r.onMessage(MSG_PRIVATE_PROFILE, (profile: PrivateProfile) => session.update({ profile }));
+    r.onMessage(MSG_KNOWLEDGE, (knowledge: KnownInfo[]) => session.update({ knowledge }));
+    r.send(MSG_REQUEST_PRIVATE_SYNC);
     setStatus(`room ${r.roomId} · invite: ${location.href}`);
     const self = r.state.players?.get(r.sessionId);
     if (self) {

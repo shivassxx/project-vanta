@@ -31,3 +31,14 @@
 - Tests (23 passing): profession roll mapping, one character per token, profile shape, token validation, owner-only delivery, no profession in public state, same token -> same character, duplicate session rejected, profile re-sent after reconnect. Verified in headless Chromium.
 - Known gaps: characters are lost on server restart (SQLite persistence is M9); no appearance customization or pre-existing relationships yet (Backlog).
 - Next: M4 VANTA + IGL.
+
+## 2026-10-06 — M4 VANTA + IGL
+- `IglSystem` (pure): designates an IGL once 2+ characters are connected (random; criteria never sent). IGL disconnect -> temporary IGL; original returns -> VANTA restores or keeps the replacement (50/50 for now); permanent removal -> new IGL.
+- `KnowledgeStore` + `checkShare`: per-character knowledge on the server; each client only receives its own list (`knowledge` message). Only the current IGL can share, only items it knows, only to characters in the room.
+- VANTA delivers the CASE_001 Subject signal (name, Citizen ID, photo placeholder, approximate location) to the IGL a few seconds after designation. A new IGL inherits the already-delivered signal (decision: otherwise a dropped IGL would stall the case).
+- Public state: `iglCharacterId` only (who, never why).
+- Client: React overlay (private background panel, IGL share panel with per-teammate checkboxes, "received" list with sender). Bot IGLs share everything with everyone so solo playtests with bots work.
+- Tests (36 passing): IGL state machine (6), knowledge/share validation (3), integration: signal reaches only the IGL and no Subject value appears in others' traffic, share reaches only selected teammates, non-IGL share ignored, temporary IGL inherits signal and original IGL restored on return.
+- Verified in headless Chromium with two human tabs.
+- Known gaps: knowledge is in memory (M9); non-IGL players cannot forward info yet (phone, M7); signal content is fixed CASE_001 data (case engine, M6).
+- Next: M5 Subject.

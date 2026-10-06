@@ -1,0 +1,13 @@
+.vt-box { background: rgba(10, 12, 15, 0.82); border: 1px solid #2c333a; padding: 8px 10px; margin-bottom: 6px; font: 12px monospace; color: #d5dde4; }
+.vt-private { position: fixed; top: 8px; right: 8px; max-width: 340px; color: #c9b27c; text-align: right; }
+.vt-left { position: fixed; top: 28px; left: 8px; width: 330px; max-height: calc(100vh - 60px); overflow-y: auto; }
+.vt-title { letter-spacing: 0.2em; margin-bottom: 4px; }
+.vt-muted { color: #6f7b86; }
+.vt-small { font-size: 11px; }
+.vt-label { color: #8fa3b5; font-size: 11px; }
+.vt-row { border-top: 1px solid #22282e; padding: 6px 0; }
+.vt-share { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 4px; }
+.vt-share label { cursor: pointer; }
+.vt-share button { font: 11px monospace; background: #1d2329; color: #d5dde4; border: 1px solid #3a434b; padding: 2px 8px; cursor: pointer; }
+.vt-share button:disabled { opacity: 0.4; cursor: default; }
+.vt-photo { width: 60px; height: 72px; display: block; margin-top: 2px; }

@@ -14,3 +14,5 @@ See `CLAUDE.md` section 3 for the stack and rules. Decisions made so far:
 - Dev: `pnpm dev` runs server (:2567) and client (:5173) together.
 - Identity: a client-held secret `playerToken` maps to a stable `characterId`. The token is never broadcast or logged. Private character data (profession) is only sent via per-client messages.
 - Persistence goes through repository interfaces in `apps/server/src/persistence/` (in-memory now, SQLite in M9).
+- Secret game knowledge (Subject info, shared items) lives in the server `KnowledgeStore`, keyed by character, and reaches a client only as that character's own `knowledge` list. Public schema state only says who the IGL is.
+- Client UI overlays are React (`apps/client/src/ui`), fed by a small `SessionStore` (useSyncExternalStore); the Three.js loop stays outside React.

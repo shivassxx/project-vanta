@@ -16,7 +16,10 @@ export interface PrivateProfile {
 }
 
 export const MSG_PRIVATE_PROFILE = "privateProfile";
-/** Client asks for its own profile once its handler is registered (also after reconnect). */
-export const MSG_REQUEST_PROFILE = "requestProfile";
+/**
+ * Client asks for all of its private data (profile, knowledge) once its handlers are
+ * registered, and again after reconnect.
+ */
+export const MSG_REQUEST_PRIVATE_SYNC = "requestPrivateSync";
 
 export const PLAYER_TOKEN_PATTERN = /^[A-Za-z0-9_-]{16,64}$/;

@@ -3,9 +3,12 @@ import {
   GREYBOX_WALLS,
   GameState,
   MAX_PLAYERS,
+  MIN_PLAYERS,
   MSG_INPUT,
+  MSG_KNOWLEDGE,
+  MSG_SHARE_ITEM,
   MSG_PRIVATE_PROFILE,
-  MSG_REQUEST_PROFILE,
+  MSG_REQUEST_PRIVATE_SYNC,
   PLAYER_TOKEN_PATTERN,
   PlayerState,
   RECONNECT_WINDOW_SECONDS,
@@ -15,14 +18,22 @@ import {
   WALK_SPEED,
   moveWithCollision,
   worldDirection,
+  type CharacterId,
   type InputMessage,
   type JoinOptions,
 } from "@vanta/shared";
-import { CharacterService } from "../systems/characters";
+import { CASE_001_SUBJECT_SIGNAL } from "@vanta/content";
+import { CharacterService, type Rng } from "../systems/characters";
+import { IglSystem } from "../systems/igl";
+import { KnowledgeStore, checkShare } from "../systems/knowledge";
 import type { CharacterRecord } from "../persistence/CharacterRepository";
 
 export interface GameRoomOptions {
   characters: CharacterService;
+  knowledge: KnowledgeStore;
+  rng?: Rng;
+  /** Delay between IGL designation and the first VANTA signal. */
+  vantaDelayMs?: number;
 }
 
 const finite = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n);
@@ -41,15 +52,25 @@ export class GameRoom extends Room<GameState> {
   private readonly inputs = new Map<string, InputMessage>();
   private readonly characters = new Map<string, CharacterRecord>();
   private characterService!: CharacterService;
+  private knowledge!: KnowledgeStore;
+  private igl!: IglSystem;
+  private vantaDelayMs = 4000;
+  private signalState: "idle" | "scheduled" | "sent" = "idle";
 
   override onCreate(options: GameRoomOptions): void {
     this.characterService = options.characters;
+    this.knowledge = options.knowledge;
+    this.igl = new IglSystem(options.rng ?? Math.random, MIN_PLAYERS);
+    this.vantaDelayMs = options.vantaDelayMs ?? this.vantaDelayMs;
     this.setState(new GameState());
-    this.onMessage(MSG_REQUEST_PROFILE, (client) => {
+    this.onMessage(MSG_REQUEST_PRIVATE_SYNC, (client) => {
       const record = this.characters.get(client.sessionId);
       // Private data goes only to the requesting owner.
-      if (record) client.send(MSG_PRIVATE_PROFILE, CharacterService.toPrivateProfile(record));
+      if (!record) return;
+      client.send(MSG_PRIVATE_PROFILE, CharacterService.toPrivateProfile(record));
+      client.send(MSG_KNOWLEDGE, this.knowledge.list(record.id));
     });
+    this.onMessage(MSG_SHARE_ITEM, (client, raw) => this.handleShare(client, raw));
     this.onMessage(MSG_INPUT, (client, raw) => {
       const input = sanitizeInput(raw);
       if (input) this.inputs.set(client.sessionId, input);
@@ -83,13 +104,16 @@ export class GameRoom extends Room<GameState> {
     p.z = spawn?.z ?? 0;
     this.state.players.set(client.sessionId, p);
     console.log(`[Multiplayer] ${client.sessionId} joined ${this.roomId} (${this.state.players.size})`);
+    if (this.igl.onReturn(record.id, this.connectedCharacters())) this.onIglChanged();
   }
 
   override async onLeave(client: Client, consented: boolean): Promise<void> {
     const p = this.state.players.get(client.sessionId);
-    if (p && !consented) {
+    const characterId = this.characters.get(client.sessionId)?.id;
+    if (p && characterId && !consented) {
       p.connected = false;
       this.inputs.delete(client.sessionId);
+      if (this.igl.onDisconnect(characterId, this.connectedCharacters())) this.onIglChanged();
       try {
         const back = await this.allowReconnection(client, RECONNECT_WINDOW_SECONDS);
         if (!this.state.players.has(client.sessionId)) {
@@ -99,6 +123,7 @@ export class GameRoom extends Room<GameState> {
         }
         p.connected = true;
         console.log(`[Multiplayer] ${client.sessionId} reconnected`);
+        if (this.igl.onReturn(characterId, this.connectedCharacters())) this.onIglChanged();
         return;
       } catch {
         // window expired
@@ -108,6 +133,64 @@ export class GameRoom extends Room<GameState> {
     this.inputs.delete(client.sessionId);
     this.characters.delete(client.sessionId);
     console.log(`[Multiplayer] ${client.sessionId} left ${this.roomId}`);
+    if (characterId && this.igl.onRemoved(characterId, this.connectedCharacters())) this.onIglChanged();
+  }
+
+  private connectedCharacters(): CharacterId[] {
+    const ids: CharacterId[] = [];
+    this.state.players.forEach((p) => p.connected && ids.push(p.characterId));
+    return ids;
+  }
+
+  private clientFor(characterId: CharacterId): Client | undefined {
+    return this.clients.find((c) => this.characters.get(c.sessionId)?.id === characterId);
+  }
+
+  private pushKnowledge(characterId: CharacterId): void {
+    this.clientFor(characterId)?.send(MSG_KNOWLEDGE, this.knowledge.list(characterId));
+  }
+
+  private onIglChanged(): void {
+    const igl = this.igl.igl;
+    this.state.iglCharacterId = igl ?? "";
+    console.log(`[VANTA] IGL is now ${igl ?? "none"} in ${this.roomId}`);
+    if (!igl) return;
+    if (this.signalState === "sent") {
+      // A new IGL inherits what VANTA had already delivered to the role.
+      this.deliverSignal(igl);
+    } else if (this.signalState === "idle") {
+      this.signalState = "scheduled";
+      this.clock.setTimeout(() => {
+        this.signalState = "sent";
+        if (this.igl.igl) this.deliverSignal(this.igl.igl);
+      }, this.vantaDelayMs);
+    }
+  }
+
+  /** One-way: VANTA sends Subject info to the IGL only. */
+  private deliverSignal(characterId: CharacterId): void {
+    const now = Date.now();
+    for (const item of CASE_001_SUBJECT_SIGNAL) this.knowledge.grant(characterId, { item, source: "vanta", receivedAt: now });
+    this.pushKnowledge(characterId);
+    console.log(`[VANTA] signal delivered to ${characterId}`);
+  }
+
+  private handleShare(client: Client, raw: unknown): void {
+    const sender = this.characters.get(client.sessionId)?.id;
+    if (!sender) return;
+    const inRoom = new Set([...this.characters.values()].map((r) => r.id));
+    const check = checkShare(raw, sender, this.igl.igl, this.knowledge, inRoom);
+    if (!check.ok) {
+      console.log(`[Investigation] share rejected from ${sender}: ${check.reason}`);
+      return;
+    }
+    const item = this.knowledge.get(sender, (raw as { itemId: string }).itemId);
+    if (!item) return;
+    const now = Date.now();
+    for (const to of check.recipients) {
+      if (this.knowledge.grant(to, { item, source: "teammate", fromCharacterId: sender, receivedAt: now })) this.pushKnowledge(to);
+    }
+    console.log(`[Investigation] ${sender} shared ${item.id} with ${check.recipients.length} teammate(s)`);
   }
 
   private tick(dt: number): void {

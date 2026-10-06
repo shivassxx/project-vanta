@@ -11,6 +11,13 @@ for (let i = 0; i < count; i++) {
   const room = await bot.join();
   console.log(`[Multiplayer] bot ${bot.sessionId} joined ${room.roomId}`);
   let yaw = Math.random() * Math.PI * 2;
+  // A bot IGL is a test stand-in: it shares everything VANTA sends with everyone.
+  setInterval(() => {
+    if (!bot.isIgl()) return;
+    const others: string[] = [];
+    room.state.players.forEach((p) => p.characterId !== bot.characterId && others.push(p.characterId));
+    for (const k of bot.knowledge) if (k.source === "vanta" && others.length) bot.share(k.item.id, others);
+  }, 3000);
   setInterval(() => {
     if (Math.random() < 0.05) yaw = Math.random() * Math.PI * 2;
     bot.sendInput({ x: 0, y: 1, yaw });
