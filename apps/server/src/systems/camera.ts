@@ -15,6 +15,8 @@ export interface PhotoPerson {
   pos: Vec2;
   look: NpcLook;
   isSubject: boolean;
+  /** Lying on the ground. */
+  down?: boolean;
 }
 
 export interface PhotoVehicle {
@@ -87,10 +89,11 @@ export function composePhoto(from: Vec2, yaw: number, scene: PhotoScene): PhotoR
     .sort((a, b) => a.d - b.d);
   for (const { p, d } of people) {
     if (p.isSubject) subjectInFrame = true;
+    const ground = p.down ? " Lying motionless on the ground." : "";
     lines.push(
-      d <= PHOTO_DETAIL_RANGE
+      (d <= PHOTO_DETAIL_RANGE
         ? `A person, close: ${describeLook(p.look)}.`
-        : `A ${buildWord(p.look.build)}person in ${withArticle(jacketName(p.look.jacket))} jacket, too far to make out a face.`,
+        : `A ${buildWord(p.look.build)}person in ${withArticle(jacketName(p.look.jacket))} jacket, too far to make out a face.`) + ground,
     );
   }
   for (const v of scene.vehicles) {

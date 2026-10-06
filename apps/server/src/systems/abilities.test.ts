@@ -7,7 +7,7 @@ const holds = (...ids: string[]) => (id: string) => ids.includes(id);
 describe("availableAbilities", () => {
   it("references only real evidence", () => {
     for (const a of CASE_001_ABILITIES) {
-      expect(CASE_001_EVIDENCE_ITEMS.has(a.grants)).toBe(true);
+      if (a.grants) expect(CASE_001_EVIDENCE_ITEMS.has(a.grants)).toBe(true);
       for (const r of a.requiresAnyEvidence) expect(CASE_001_EVIDENCE_ITEMS.has(r)).toBe(true);
     }
   });
@@ -23,5 +23,16 @@ describe("availableAbilities", () => {
   it("disappears once used or once the result is already held", () => {
     expect(availableAbilities(CASE_001_ABILITIES, "police_officer", holds("case001.ev.parkingStub"), new Set(["runPlate"]))).toEqual([]);
     expect(availableAbilities(CASE_001_ABILITIES, "police_officer", holds("case001.ev.parkingStub", "case001.ev.sedanRegistration"), new Set())).toEqual([]);
+  });
+});
+
+describe("reporting the Subject", () => {
+  it("is open to anyone who knows her name and holds something to show", () => {
+    const knowsName = (id: string) => id === "case001.subject.fullName";
+    const ids = (prof: string, h: (id: string) => boolean, k?: (id: string) => boolean) =>
+      availableAbilities(CASE_001_ABILITIES, prof, h, new Set(), k).map((a) => a.id);
+    expect(ids("doctor", holds("case001.ev.tornNote"))).toEqual([]);
+    expect(ids("doctor", holds("case001.ev.tornNote"), knowsName)).toEqual(["reportSubject"]);
+    expect(ids("mechanic", holds("case001.ev.cafeCctv"), knowsName)).toEqual(["reportSubject"]);
   });
 });

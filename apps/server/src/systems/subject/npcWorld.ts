@@ -23,6 +23,7 @@ interface Person {
   awareness?: Awareness;
   look: NpcLook;
   conversation: string;
+  dead: boolean;
 }
 
 const opaqueId = () => `npc_${randomBytes(4).toString("hex")}`;
@@ -39,6 +40,8 @@ export class NpcWorld {
     private readonly onEvent: (e: SubjectEvent) => void = () => undefined,
     /** Campaign memory: people who are gone or dead are not spawned again. */
     statusOf: (key: string) => PersonStatus = () => "present",
+    /** Conversation IDs that exist for bodies (`body_<key>`). */
+    private readonly bodyConversations: ReadonlySet<string> = new Set(),
   ) {
     for (const def of defs) {
       if (statusOf(def.key) !== "present") continue;
@@ -50,6 +53,7 @@ export class NpcWorld {
         awareness: def.key === CASE_001_SUBJECT.key ? new Awareness() : undefined,
         look: def.look,
         conversation: def.conversation ?? "civilian",
+        dead: false,
       });
     }
   }
@@ -74,6 +78,7 @@ export class NpcWorld {
   tick(dt: number, observers: readonly Observer[], npcs: Map<string, NpcState>): void {
     const leaving: Person[] = [];
     for (const p of this.people) {
+      if (p.dead) continue;
       p.brain.tick(dt, (e) => {
         if (e.type === "left") leaving.push(p);
         else if (p.isSubject) this.emitBrain(e);
@@ -104,19 +109,33 @@ export class NpcWorld {
   /** Whether anyone (other than `except`) can see this spot: within range, no wall between. */
   witnessesNear(pos: Vec2, range: number, occluders: readonly Box2[], except?: string): boolean {
     return this.people.some(
-      (p) => p.id !== except && Math.hypot(p.brain.pos.x - pos.x, p.brain.pos.z - pos.z) <= range && !occluders.some((b) => segmentHitsBox(p.brain.pos, pos, b)),
+      (p) => !p.dead && p.id !== except && Math.hypot(p.brain.pos.x - pos.x, p.brain.pos.z - pos.z) <= range && !occluders.some((b) => segmentHitsBox(p.brain.pos, pos, b)),
     );
   }
 
   /** Server-only lookups for conversations; never sent to clients. */
   find(id: string): { pos: Vec2; conversation: string; observed: string; isSubject: boolean } | undefined {
     const p = this.people.find((x) => x.id === id);
-    return p && { pos: p.brain.pos, conversation: p.conversation, observed: describeLook(p.look), isSubject: p.isSubject };
+    if (!p) return undefined;
+    const conversation = p.dead ? (this.bodyConversations.has(`body_${p.key}`) ? `body_${p.key}` : "body") : p.conversation;
+    const observed = p.dead ? `On the ground: ${describeLook(p.look)}` : describeLook(p.look);
+    return { pos: p.brain.pos, conversation, observed, isSubject: p.isSubject };
+  }
+
+  /** A person dies where they are. Their body stays visible in this room. Returns false if unknown. */
+  kill(key: string, npcs: Map<string, NpcState>): boolean {
+    const p = this.people.find((x) => x.key === key);
+    if (!p || p.dead) return false;
+    p.dead = true;
+    p.awareness = undefined;
+    const s = npcs.get(p.id);
+    if (s) s.down = true;
+    return true;
   }
 
   /** Server-only snapshot for the phone camera. */
-  photoPeople(): { pos: Vec2; look: NpcLook; isSubject: boolean }[] {
-    return this.people.map((p) => ({ pos: { ...p.brain.pos }, look: p.look, isSubject: p.isSubject }));
+  photoPeople(): { pos: Vec2; look: NpcLook; isSubject: boolean; down: boolean }[] {
+    return this.people.map((p) => ({ pos: { ...p.brain.pos }, look: p.look, isSubject: p.isSubject, down: p.dead }));
   }
 
   /** Someone walked up and spoke to this person. For the Subject that is unmistakable surveillance. */

@@ -103,3 +103,23 @@ describe("NpcWorld consequences", () => {
     expect(world.witnessesNear({ x: at.x, z: at.z - 20 }, 8, [])).toBe(false);
   });
 });
+
+describe("NpcWorld death", () => {
+  it("kills a person: they stop, lie down, stop witnessing and become a body", () => {
+    const smoker = CASE_001_WITNESSES.find((w) => w.key === "witness_smoker");
+    if (!smoker?.standAt) throw new Error("no smoker");
+    const world = new NpcWorld([smoker], undefined, undefined, new Set(["body_witness_smoker"]));
+    const npcs = new Map<string, NpcState>();
+    world.populate(npcs);
+    const [id] = [...npcs.keys()];
+    if (!id) throw new Error("no npc");
+    expect(world.witnessesNear(smoker.standAt, 5, [])).toBe(true);
+    expect(world.kill("witness_smoker", npcs)).toBe(true);
+    expect(world.kill("witness_smoker", npcs)).toBe(false);
+    expect(npcs.get(id)?.down).toBe(true);
+    expect(world.witnessesNear(smoker.standAt, 5, [])).toBe(false);
+    expect(world.find(id)?.conversation).toBe("body_witness_smoker");
+    expect(world.find(id)?.observed).toMatch(/^On the ground: /);
+    expect(world.photoPeople()[0]?.down).toBe(true);
+  });
+});

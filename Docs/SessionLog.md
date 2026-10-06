@@ -105,3 +105,13 @@
 - Client: private PHONE panel, VANTA notice banner for the IGL.
 - Tests (123 passing): templating, crime/witness/outcome rules, world repository (version check, isolation), Subject leaving + not respawning, witnesses with line of sight, integration: police contact only the seen player, unseen crime stays quiet, spooked Subject leaves -> outcome -> IGL-only notice -> next room remembers.
 - Remaining M8: NPC death, intervention outcomes (warn / report the Subject).
+
+## 2026-10-06 — M8 slice 2: death and interventions (M8 complete)
+- NPC death: `npc.die {key}` stops the person, sets public `down` (a body anyone can see), removes them as a witness, makes them examinable (`body_<key>` conversation or a generic one) and records `dead` in the world state so later rooms do not spawn them. Photos describe a body as lying motionless.
+- CASE_001: if the team stays slow after the relocation, the watcher (deceptive witness) is found dead 5 minutes later; his body holds a phone with one number called repeatedly.
+- Interventions, none labeled correct: warn her about the watcher (needs the CCTV footage) -> `subject_warned`, she says she has known since Tuesday and leaves; ask about the envelope and threaten her (a crime) -> spooked -> flight -> `subject_fled`; anyone who knows her name and holds the CCTV or the torn note can call Calder PD (`reportSubject` ability) -> `subject_reported`, she is escorted away. With `case_cold` CASE_001 now has four outcomes.
+- Abilities: profession list optional, info requirements, no-evidence abilities; abilities refresh when knowledge changes.
+- Design fix found by tests: the Subject's testimony was on the option after she starts leaving, so players could miss it; it is now granted by the warning itself.
+- Tests (132 passing, 3 runs): death rules, interventions, body/witness/photo behavior, report ability, integration: warn outcome and departure, report outcome persisted, watcher death -> body examined -> dead in the next room.
+- Not verified visually: the body pose (death takes 20+ real minutes at normal speed).
+- Next: M9 save/load (durable SQLite storage for characters, world state, knowledge and evidence).

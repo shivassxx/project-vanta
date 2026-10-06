@@ -8,6 +8,8 @@ import { CASE_001_SUBJECT_SIGNAL } from "./case001";
  *   photo.taken {subjectInFrame, area}, crime.committed {actor, kind, witnessed}, subject.leftDistrict
  * More effects:
  *   police.notice {characterId, reason, delaySec} -> the police contact that player
+ *   npc.die {key} -> a person dies (persistent)
+ * Outcomes: subject_fled, case_cold, subject_warned, subject_reported
  * Effects go to the server:
  *   vanta.deliver {items}  -> VANTA sends items to the IGL
  *   subject.alert {level}  -> Subject behavior changes (acted on in M8)
@@ -106,5 +108,31 @@ export const CASE_001_RULES: CaseDef = {
       ],
     },
     { id: "case_cold", on: "timer:gone_cold", when: { stage: "relocated" }, do: [{ setOutcome: "case_cold" }] },
+    // Someone cleans up while the team is slow: the man who watched Elena is found dead.
+    { id: "watcher_clock", on: "stage:relocated", do: [{ startTimer: "watcher_dies", afterSec: 300 }] },
+    {
+      id: "watcher_dies",
+      on: "timer:watcher_dies",
+      do: [{ setFlag: "watcherDead", value: true }, { effect: { type: "npc.die", payload: { key: "witness_smoker" } } }],
+    },
+
+    // Interventions. Each closes the case differently; none is labeled correct.
+    {
+      id: "subject_warned",
+      on: "conversation.choice",
+      when: { all: [{ payload: "conversation", equals: "subject" }, { payload: "option", equals: "start.warn" }] },
+      do: [{ effect: { type: "subject.alert", payload: { level: "leaving" } } }, { setOutcome: "subject_warned" }],
+    },
+    {
+      id: "subject_threatened",
+      on: "crime.committed",
+      when: { payload: "kind", equals: "threat" },
+      do: [{ setFlag: "subjectThreatened", value: true }, { setStage: "spooked" }, { effect: { type: "subject.alert", payload: { level: "spooked" } } }],
+    },
+    {
+      id: "subject_reported",
+      on: "police.report",
+      do: [{ effect: { type: "subject.alert", payload: { level: "detained" } } }, { setOutcome: "subject_reported" }],
+    },
   ],
 };

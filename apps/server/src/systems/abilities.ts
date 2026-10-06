@@ -7,8 +7,16 @@ export function availableAbilities(
   profession: ProfessionId,
   holds: (evidenceId: string) => boolean,
   used: ReadonlySet<string>,
+  knows: (infoId: string) => boolean = () => false,
 ): AbilityView[] {
   return defs
-    .filter((d) => !used.has(d.id) && d.professions.includes(profession) && d.requiresAnyEvidence.some(holds) && !holds(d.grants))
+    .filter(
+      (d) =>
+        !used.has(d.id) &&
+        (!d.professions || d.professions.includes(profession)) &&
+        d.requiresAnyEvidence.some(holds) &&
+        (d.requiresInfo ?? []).every(knows) &&
+        !(d.grants && holds(d.grants)),
+    )
     .map((d) => ({ id: d.id, label: d.label }));
 }

@@ -157,7 +157,7 @@ export class GameRoom extends Room<GameState> {
       if (e.type === "subject.noticed") this.caseRunner.feed(e.type);
       else if (e.type === "subject.leftDistrict") this.onPersonLeft(e.key);
       else this.caseRunner.feed(e.type, { node: e.node, note: e.note ?? "" });
-    }, (key) => this.world.people[key] ?? "present");
+    }, (key) => this.world.people[key] ?? "present", new Set(CASE_001_CONVERSATIONS.keys()));
     this.npcWorld.populate(this.state.npcs);
     this.evidence = options.evidence;
     this.evidenceWorld = new EvidenceWorld(options.evidenceSpots ?? CASE_001_EVIDENCE);
@@ -265,7 +265,10 @@ export class GameRoom extends Room<GameState> {
   }
 
   private pushKnowledge(characterId: CharacterId): void {
-    this.clientFor(characterId)?.send(MSG_KNOWLEDGE, this.knowledge.list(characterId));
+    const client = this.clientFor(characterId);
+    client?.send(MSG_KNOWLEDGE, this.knowledge.list(characterId));
+    // Knowing something new can open abilities (e.g. reporting someone by name).
+    client?.send(MSG_ABILITIES, this.abilitiesOf(characterId));
   }
 
   private onIglChanged(): void {
@@ -310,7 +313,15 @@ export class GameRoom extends Room<GameState> {
       if (this.igl.igl) this.deliverToIgl(this.igl.igl, items);
     } else if (e.type === "subject.alert") {
       console.log(`[NPC] subject alert: ${String(e.payload?.level)}`);
-      if (e.payload?.level === "spooked") this.npcWorld.subjectLeave();
+      // Spooked: flees. Leaving: goes after being warned. Detained: escorted away by the police.
+      if (["spooked", "leaving", "detained"].includes(String(e.payload?.level))) this.npcWorld.subjectLeave();
+    } else if (e.type === "npc.die") {
+      const key = String(e.payload?.key ?? "");
+      if (this.npcWorld.kill(key, this.state.npcs)) {
+        this.world.people[key] = "dead";
+        this.saveWorld();
+        console.log(`[NPC] ${key} died`);
+      }
     } else if (e.type === "police.notice") {
       const characterId = String(e.payload?.characterId ?? "");
       const reason = String(e.payload?.reason ?? "");
@@ -446,6 +457,7 @@ export class GameRoom extends Room<GameState> {
       record?.professionId ?? "",
       (id) => !!this.evidence.has(characterId, id),
       this.usedAbilities.get(characterId) ?? new Set(),
+      (id) => !!this.knowledge.get(characterId, id),
     );
   }
 
@@ -487,14 +499,15 @@ export class GameRoom extends Room<GameState> {
     const id = (raw as { id?: unknown } | null)?.id;
     if (!characterId || !this.abilitiesOf(characterId).some((a) => a.id === id)) return;
     const def = CASE_001_ABILITIES.find((a) => a.id === id);
-    const item = def && CASE_001_EVIDENCE_ITEMS.get(def.grants);
-    if (!def || !item) return;
+    if (!def) return;
+    const item = def.grants ? CASE_001_EVIDENCE_ITEMS.get(def.grants) : undefined;
     const used = this.usedAbilities.get(characterId) ?? new Set<string>();
     used.add(def.id);
     this.usedAbilities.set(characterId, used);
     client.send(MSG_ABILITIES, this.abilitiesOf(characterId));
     console.log(`[Investigation] ${characterId} used ${def.id}`);
     this.caseRunner.feed(def.caseEvent);
+    if (!item) return;
     const deliver = () => this.grantEvidence(characterId, item);
     if (def.delaySec > 0) this.clock.setTimeout(deliver, (def.delaySec * 1000) / this.caseTimeScale);
     else deliver();

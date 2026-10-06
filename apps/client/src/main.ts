@@ -213,6 +213,9 @@ function syncNpcs(dt: number): void {
     mesh.position.x += (n.x - mesh.position.x) * k;
     mesh.position.z += (n.z - mesh.position.z) * k;
     mesh.rotation.y = n.facing;
+    // Someone lying on the ground.
+    mesh.rotation.z = n.down ? Math.PI / 2 : 0;
+    mesh.position.y = n.down ? 0.35 : 0;
   });
 }
 

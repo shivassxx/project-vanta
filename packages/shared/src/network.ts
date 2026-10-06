@@ -80,9 +80,12 @@ export class NpcState extends Schema {
   declare faceShape: string;
   declare jacket: string;
   declare build: string;
+  /** Lying on the ground (dead or unconscious). Visible to anyone who looks. */
+  declare down: boolean;
 
   constructor() {
     super();
+    this.down = false;
     this.id = "";
     this.x = 0;
     this.z = 0;
@@ -104,6 +107,7 @@ defineTypes(NpcState, {
   faceShape: "string",
   jacket: "string",
   build: "string",
+  down: "boolean",
 });
 
 /** A physical thing in the world that can be examined. Its contents stay on the server. */

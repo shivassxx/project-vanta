@@ -97,3 +97,32 @@ describe("CASE_001 outcomes", () => {
     expect(play([...start, { type: "time", at: 950 }, { type: "time", at: 1600 }]).state.outcome).toBe("case_cold");
   });
 });
+
+describe("CASE_001 death and interventions", () => {
+  it("kills the watcher if the team stays slow after the relocation, before the case goes cold", () => {
+    const { state, effects } = play([...start, { type: "time", at: 950 }, { type: "time", at: 1260 }]);
+    expect(effects).toContainEqual({ type: "npc.die", payload: { key: "witness_smoker" } });
+    expect(state.flags.watcherDead).toBe(true);
+    expect(state.outcome).toBeUndefined();
+  });
+
+  it("closes as subject_warned when a player warns her", () => {
+    const { state, effects } = play([...start, { type: "conversation.choice", at: 60, payload: { conversation: "subject", option: "start.warn" } }]);
+    expect(state.outcome).toBe("subject_warned");
+    expect(effects).toContainEqual({ type: "subject.alert", payload: { level: "leaving" } });
+  });
+
+  it("spooks her when threatened, which leads to flight", () => {
+    const { state } = play([
+      ...start,
+      { type: "crime.committed", at: 60, payload: { actor: "a", kind: "threat", witnessed: false } },
+      { type: "subject.leftDistrict", at: 90 },
+    ]);
+    expect(state.flags.subjectThreatened).toBe(true);
+    expect(state.outcome).toBe("subject_fled");
+  });
+
+  it("closes as subject_reported when someone calls the police on her", () => {
+    expect(play([...start, { type: "police.report", at: 60 }]).state.outcome).toBe("subject_reported");
+  });
+});
