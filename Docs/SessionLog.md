@@ -123,3 +123,6 @@
 - Real server uses `saves/vanta.sqlite` (or `VANTA_DB`); tests stay in-memory unless they opt in.
 - Tests (142 passing): migrations (3), world repo migration, SQLite round-trips (character, world), raw token never in the DB file, old save migrated / future save refused / newer DB refused, integration: full server restart on the same file brings back characters, knowledge, evidence, board (new IDs do not collide) and the case stage. Verified manually: `pnpm dev` restarted, same token -> same character and profession.
 - First Playable list: all 12 items now exist. Next: M10 vertical slice — make CASE_001 complete and fun (playtest, tune timings, fix rough edges).
+
+## 2026-10-06 — Fix: Windows install of better-sqlite3
+- `pnpm install` failed on Windows (`'node-gyp' is not recognized`): better-sqlite3 13 has no prebuilt binaries and always compiles. Pinned 12.11.1 (exact), which downloads a prebuilt binary (verified: "Successfully installed prebuilt binary"). Reason recorded in Architecture.md. All 142 tests pass.
