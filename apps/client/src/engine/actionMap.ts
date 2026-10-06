@@ -6,7 +6,8 @@ export type Action =
   | "sprint"
   | "interact"
   | "aim"
-  | "investigate";
+  | "investigate"
+  | "toggleBoard";
 
 export type Bindings = Record<Action, string[]>;
 
@@ -20,6 +21,7 @@ export const DEFAULT_BINDINGS: Bindings = {
   interact: ["KeyE"],
   aim: ["Mouse2"],
   investigate: ["KeyF"],
+  toggleBoard: ["KeyB"],
 };
 
 /** Tracks raw inputs and exposes them only as actions. Gameplay never sees raw keys. */

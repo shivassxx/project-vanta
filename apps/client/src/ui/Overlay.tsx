@@ -1,16 +1,18 @@
 import { PHOTO_FACES, getProfession } from "@vanta/content";
 import { hairHex, skinHex, type FaceLook } from "@vanta/shared";
-import type { CharacterId, KnownInfo, SubjectInfoItem } from "@vanta/shared";
+import type { BoardCommand, CharacterId, KnownInfo, SubjectInfoItem } from "@vanta/shared";
 import { useState, useSyncExternalStore } from "react";
 import { shortId, type SessionStore, type Teammate } from "../game/session";
+import { BoardPanel } from "./BoardPanel";
 import "./overlay.css";
 
 export interface OverlayProps {
   store: SessionStore;
   onShare: (itemId: string, to: CharacterId[]) => void;
+  onBoard: (cmd: BoardCommand) => void;
 }
 
-export function Overlay({ store, onShare }: OverlayProps) {
+export function Overlay({ store, onShare, onBoard }: OverlayProps) {
   const view = useSyncExternalStore(store.subscribe, store.get);
   const self = view.profile?.characterId;
   const isIgl = !!self && view.iglCharacterId === self;
@@ -26,6 +28,18 @@ export function Overlay({ store, onShare }: OverlayProps) {
           <div className="vt-box vt-muted">{isIgl ? "DESIGNATION: IGL" : `IGL: ${shortId(view.iglCharacterId)}`}</div>
         )}
         {isIgl && fromVanta.length > 0 && <IglPanel items={fromVanta.map((k) => k.item)} teammates={others} onShare={onShare} />}
+        {view.evidence.length > 0 && (
+          <div className="vt-box">
+            <div className="vt-title">EVIDENCE</div>
+            {view.evidence.map((f) => (
+              <div key={f.item.id} className="vt-row">
+                <div>{f.item.title}</div>
+                <div className="vt-muted vt-small">{f.item.description}</div>
+              </div>
+            ))}
+            <div className="vt-muted vt-small">B: case board</div>
+          </div>
+        )}
         {fromTeam.length > 0 && (
           <div className="vt-box">
             <div className="vt-title">RECEIVED</div>
@@ -35,6 +49,7 @@ export function Overlay({ store, onShare }: OverlayProps) {
           </div>
         )}
       </div>
+      {view.boardOpen && <BoardPanel board={view.board} evidence={view.evidence} knowledge={view.knowledge} send={onBoard} self={self} />}
     </>
   );
 }

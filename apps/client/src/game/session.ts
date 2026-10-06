@@ -1,4 +1,4 @@
-import type { CharacterId, KnownInfo, PrivateProfile } from "@vanta/shared";
+import type { Board, CharacterId, FoundEvidence, KnownInfo, PrivateProfile } from "@vanta/shared";
 
 export interface Teammate {
   characterId: CharacterId;
@@ -11,12 +11,22 @@ export interface SessionView {
   knowledge: KnownInfo[];
   iglCharacterId: CharacterId;
   teammates: Teammate[];
+  evidence: FoundEvidence[];
+  board: Board;
+  boardOpen: boolean;
 }
 
 type Listener = () => void;
 
 export class SessionStore {
-  private view: SessionView = { knowledge: [], iglCharacterId: "", teammates: [] };
+  private view: SessionView = {
+    knowledge: [],
+    iglCharacterId: "",
+    teammates: [],
+    evidence: [],
+    board: { entries: [], links: [] },
+    boardOpen: false,
+  };
   private readonly listeners = new Set<Listener>();
 
   get = (): SessionView => this.view;

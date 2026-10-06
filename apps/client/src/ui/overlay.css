@@ -11,3 +11,17 @@
 .vt-share button { font: 11px monospace; background: #1d2329; color: #d5dde4; border: 1px solid #3a434b; padding: 2px 8px; cursor: pointer; }
 .vt-share button:disabled { opacity: 0.4; cursor: default; }
 .vt-photo { width: 60px; height: 72px; display: block; margin-top: 2px; }
+.vt-board { position: fixed; inset: 100px 40px 40px 360px; background: rgba(10, 12, 15, 0.94); border: 1px solid #2c333a; padding: 12px; font: 12px monospace; color: #d5dde4; overflow: auto; }
+.vt-board-cols { display: flex; gap: 16px; }
+.vt-board-main { flex: 1; }
+.vt-board-side { width: 260px; }
+.vt-cards { display: flex; flex-wrap: wrap; gap: 8px; }
+.vt-card { width: 200px; border: 1px solid #3a434b; padding: 6px; background: #151a1f; }
+.vt-card-evidence { border-color: #7a6a45; }
+.vt-card-info { border-color: #45607a; }
+.vt-card-note { border-color: #4f4f4f; border-style: dashed; }
+.vt-x { float: right; background: none; border: none; color: #8a8f94; cursor: pointer; font: 12px monospace; }
+.vt-form { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.vt-form-col { flex-direction: column; }
+.vt-board input, .vt-board textarea, .vt-board select, .vt-board button { font: 11px monospace; background: #1d2329; color: #d5dde4; border: 1px solid #3a434b; padding: 3px 6px; }
+.vt-board button:disabled { opacity: 0.4; }

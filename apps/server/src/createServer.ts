@@ -5,6 +5,7 @@ import { GAME_ROOM_NAME } from "@vanta/shared";
 import { InMemoryCharacterRepository } from "./persistence/CharacterRepository";
 import { GameRoom, type GameRoomOptions } from "./rooms/GameRoom";
 import { CharacterService } from "./systems/characters";
+import { EvidenceStore } from "./systems/evidence";
 import { KnowledgeStore } from "./systems/knowledge";
 
 /** Single development campaign until campaign selection exists. */
@@ -14,6 +15,7 @@ export async function startGameServer(port: number, overrides: Partial<GameRoomO
   const roomOptions: GameRoomOptions = {
     characters: new CharacterService(new InMemoryCharacterRepository(), DEV_CAMPAIGN_ID),
     knowledge: new KnowledgeStore(),
+    evidence: new EvidenceStore(),
     ...overrides,
   };
   const httpServer = createServer((req, res) => {

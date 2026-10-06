@@ -56,12 +56,14 @@ export class GameState extends Schema {
   /** Public: who VANTA designated. Never why. Empty when none. */
   declare iglCharacterId: string;
   declare npcs: MapSchema<NpcState>;
+  declare spots: MapSchema<SpotState>;
 
   constructor() {
     super();
     this.players = new MapSchema<PlayerState>();
     this.iglCharacterId = "";
     this.npcs = new MapSchema<NpcState>();
+    this.spots = new MapSchema<SpotState>();
   }
 }
 
@@ -102,4 +104,27 @@ defineTypes(NpcState, {
   build: "string",
 });
 
-defineTypes(GameState, { players: { map: PlayerState }, iglCharacterId: "string", npcs: { map: NpcState } });
+/** A physical thing in the world that can be examined. Its contents stay on the server. */
+export class SpotState extends Schema {
+  declare id: string;
+  declare x: number;
+  declare z: number;
+  /** What anyone can see from a distance, e.g. "Crumpled paper". */
+  declare label: string;
+
+  constructor() {
+    super();
+    this.id = "";
+    this.x = 0;
+    this.z = 0;
+    this.label = "";
+  }
+}
+defineTypes(SpotState, { id: "string", x: "number", z: "number", label: "string" });
+
+defineTypes(GameState, {
+  players: { map: PlayerState },
+  iglCharacterId: "string",
+  npcs: { map: NpcState },
+  spots: { map: SpotState },
+});

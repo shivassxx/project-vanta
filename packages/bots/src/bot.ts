@@ -2,11 +2,18 @@ import { Client, type Room } from "colyseus.js";
 import { randomBytes } from "node:crypto";
 import {
   GAME_ROOM_NAME,
+  MSG_BOARD,
+  MSG_BOARD_COMMAND,
+  MSG_EVIDENCE,
   MSG_INPUT,
+  MSG_INTERACT,
   MSG_KNOWLEDGE,
   MSG_PRIVATE_PROFILE,
   MSG_SHARE_ITEM,
   MSG_REQUEST_PRIVATE_SYNC,
+  type Board,
+  type BoardCommand,
+  type FoundEvidence,
   type GameState,
   type InputMessage,
   type KnownInfo,
@@ -32,6 +39,8 @@ export class Bot {
   readonly received: { type: string | number; message: unknown }[] = [];
   profile?: PrivateProfile;
   knowledge: KnownInfo[] = [];
+  evidence: FoundEvidence[] = [];
+  board: Board = { entries: [], links: [] };
 
   constructor(private readonly opts: BotOptions) {
     this.client = new Client(opts.endpoint);
@@ -53,6 +62,8 @@ export class Bot {
       this.received.push({ type, message });
       if (type === MSG_PRIVATE_PROFILE) this.profile = message as PrivateProfile;
       if (type === MSG_KNOWLEDGE) this.knowledge = message as KnownInfo[];
+      if (type === MSG_EVIDENCE) this.evidence = message as FoundEvidence[];
+      if (type === MSG_BOARD) this.board = message as Board;
     });
     room.send(MSG_REQUEST_PRIVATE_SYNC);
   }
@@ -90,6 +101,14 @@ export class Bot {
   share(itemId: string, toCharacterIds: string[]): void {
     const req: ShareRequest = { itemId, toCharacterIds };
     this.room?.send(MSG_SHARE_ITEM, req);
+  }
+
+  interact(targetId: string): void {
+    this.room?.send(MSG_INTERACT, { targetId });
+  }
+
+  boardCommand(cmd: BoardCommand): void {
+    this.room?.send(MSG_BOARD_COMMAND, cmd);
   }
 
   position(): { x: number; z: number } | undefined {

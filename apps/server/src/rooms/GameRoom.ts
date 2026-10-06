@@ -4,7 +4,11 @@ import {
   GameState,
   MAX_PLAYERS,
   MIN_PLAYERS,
+  MSG_BOARD,
+  MSG_BOARD_COMMAND,
+  MSG_EVIDENCE,
   MSG_INPUT,
+  MSG_INTERACT,
   MSG_KNOWLEDGE,
   MSG_SHARE_ITEM,
   MSG_PRIVATE_PROFILE,
@@ -18,11 +22,14 @@ import {
   WALK_SPEED,
   moveWithCollision,
   worldDirection,
+  type Board,
   type CharacterId,
   type InputMessage,
   type JoinOptions,
 } from "@vanta/shared";
-import { CASE_001_ITEMS, CASE_001_RULES } from "@vanta/content/server";
+import { CASE_001_EVIDENCE, CASE_001_ITEMS, CASE_001_RULES, type EvidenceSpotDef } from "@vanta/content/server";
+import { applyBoardCommand, emptyBoard } from "../systems/board";
+import { EvidenceStore, EvidenceWorld } from "../systems/evidence";
 import type { Effect } from "@vanta/case-engine";
 import { CaseRunner } from "../systems/cases/caseRunner";
 import { CharacterService, type Rng } from "../systems/characters";
@@ -35,6 +42,9 @@ import type { CharacterRecord } from "../persistence/CharacterRepository";
 export interface GameRoomOptions {
   characters: CharacterService;
   knowledge: KnowledgeStore;
+  evidence: EvidenceStore;
+  /** Evidence placed in the world (tests may override). */
+  evidenceSpots?: readonly EvidenceSpotDef[];
   rng?: Rng;
   /** Multiplies case time (tests only). */
   caseTimeScale?: number;
@@ -63,6 +73,10 @@ export class GameRoom extends Room<GameState> {
   private knowledge!: KnowledgeStore;
   private igl!: IglSystem;
   private caseRunner!: CaseRunner;
+  private evidence!: EvidenceStore;
+  private evidenceWorld!: EvidenceWorld;
+  private board: Board = emptyBoard();
+  private boardIds = 0;
   private caseTimeScale = 1;
   private designatedOnce = false;
   /** Items VANTA has delivered to the IGL role; a new IGL inherits them. */
@@ -85,12 +99,19 @@ export class GameRoom extends Room<GameState> {
       else this.caseRunner.feed(e.type, { node: e.node, note: e.note ?? "" });
     });
     this.npcWorld.populate(this.state.npcs);
+    this.evidence = options.evidence;
+    this.evidenceWorld = new EvidenceWorld(options.evidenceSpots ?? CASE_001_EVIDENCE);
+    this.evidenceWorld.populate(this.state.spots);
+    this.onMessage(MSG_INTERACT, (client, raw) => this.handleInteract(client, raw));
+    this.onMessage(MSG_BOARD_COMMAND, (client, raw) => this.handleBoard(client, raw));
     this.onMessage(MSG_REQUEST_PRIVATE_SYNC, (client) => {
       const record = this.characters.get(client.sessionId);
       // Private data goes only to the requesting owner.
       if (!record) return;
       client.send(MSG_PRIVATE_PROFILE, CharacterService.toPrivateProfile(record));
       client.send(MSG_KNOWLEDGE, this.knowledge.list(record.id));
+      client.send(MSG_EVIDENCE, this.evidence.list(record.id));
+      client.send(MSG_BOARD, this.board);
     });
     this.onMessage(MSG_SHARE_ITEM, (client, raw) => this.handleShare(client, raw));
     this.onMessage(MSG_INPUT, (client, raw) => {
@@ -214,6 +235,40 @@ export class GameRoom extends Room<GameState> {
     }
     this.pushKnowledge(characterId);
     console.log(`[VANTA] delivered ${itemIds.length} item(s) to ${characterId}`);
+  }
+
+  /** Examine a world spot; distance is checked against the server-side position. */
+  private handleInteract(client: Client, raw: unknown): void {
+    const characterId = this.characters.get(client.sessionId)?.id;
+    const p = this.state.players.get(client.sessionId);
+    if (!characterId || !p) return;
+    const r = this.evidenceWorld.examine((raw as { targetId?: unknown } | null)?.targetId, { x: p.x, z: p.z });
+    if (!r.ok) return;
+    if (r.removed) this.state.spots.delete(r.def.spotId);
+    if (this.evidence.grant(characterId, { item: r.def.item, foundBy: characterId, foundAt: Date.now() })) {
+      client.send(MSG_EVIDENCE, this.evidence.list(characterId));
+      console.log(`[Evidence] ${characterId} found ${r.def.item.id}`);
+      this.caseRunner.feed("evidence.found", { evidenceId: r.def.item.id });
+    }
+  }
+
+  /** Team case board: shared with everyone in the room once something is pinned. */
+  private handleBoard(client: Client, raw: unknown): void {
+    const actor = this.characters.get(client.sessionId)?.id;
+    if (!actor) return;
+    const r = applyBoardCommand(this.board, raw, {
+      actor,
+      evidenceOf: (id) => this.evidence.has(actor, id)?.item,
+      infoOf: (id) => this.knowledge.get(actor, id),
+      newId: () => `b${++this.boardIds}`,
+    });
+    if (!r.ok) {
+      console.log(`[Investigation] board command rejected from ${actor}: ${r.reason}`);
+      return;
+    }
+    this.board = r.board;
+    this.broadcast(MSG_BOARD, this.board);
+    if (r.event) this.caseRunner.feed(r.event.type, r.event.refId ? { refId: r.event.refId } : undefined);
   }
 
   private handleShare(client: Client, raw: unknown): void {

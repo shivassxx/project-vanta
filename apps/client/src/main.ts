@@ -2,7 +2,11 @@ import * as THREE from "three";
 import {
   GAME_NAME,
   GREYBOX_WALLS,
+  MSG_BOARD,
+  MSG_BOARD_COMMAND,
+  MSG_EVIDENCE,
   MSG_INPUT,
+  MSG_INTERACT,
   MSG_KNOWLEDGE,
   MSG_PRIVATE_PROFILE,
   MSG_REQUEST_PRIVATE_SYNC,
@@ -13,6 +17,9 @@ import {
   moveWithCollision,
   worldDirection,
   type GameState,
+  type Board,
+  type BoardCommand,
+  type FoundEvidence,
   type InputMessage,
   type KnownInfo,
   type PrivateProfile,
@@ -25,6 +32,7 @@ import { CAMERA_PRESETS, clampPitch, lerpPreset, resolveMode, type CameraPreset 
 import { buildGreybox } from "./game/greybox";
 import { createNpcMesh } from "./game/npcView";
 import { npcInteractables, observationText } from "./game/observe";
+import { syncSpots, spotInteractables } from "./game/spots";
 import { findInteractable } from "./game/interaction";
 import { connect } from "./game/network";
 import { SessionStore, type Teammate } from "./game/session";
@@ -57,7 +65,11 @@ const remotes = new Map<string, THREE.Mesh>();
 const npcMeshes = new Map<string, THREE.Group>();
 
 const input = new ActionMap();
-addEventListener("keydown", (e) => input.press(e.code));
+// Typing into overlay inputs (notes, links) must not move the character.
+const typing = (e: KeyboardEvent) => e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement;
+addEventListener("keydown", (e) => {
+  if (!typing(e)) input.press(e.code);
+});
 addEventListener("keyup", (e) => input.release(e.code));
 renderer.domElement.addEventListener("mousedown", (e) => {
   if (document.pointerLockElement !== renderer.domElement) void renderer.domElement.requestPointerLock();
@@ -86,10 +98,15 @@ const setStatus = (s: string) => status && (status.textContent = s);
 
 let room: Room<GameState> | undefined;
 const session = new SessionStore();
-mountOverlay(document.getElementById("ui"), session, (itemId, toCharacterIds) => {
-  const req: ShareRequest = { itemId, toCharacterIds };
-  room?.send(MSG_SHARE_ITEM, req);
-});
+mountOverlay(
+  document.getElementById("ui"),
+  session,
+  (itemId, toCharacterIds) => {
+    const req: ShareRequest = { itemId, toCharacterIds };
+    room?.send(MSG_SHARE_ITEM, req);
+  },
+  (cmd: BoardCommand) => room?.send(MSG_BOARD_COMMAND, cmd),
+);
 
 // Public room state -> overlay (IGL designation, teammate list), polled at low rate.
 let lastPublic = "";
@@ -109,6 +126,13 @@ connect()
     room = r;
     r.onMessage(MSG_PRIVATE_PROFILE, (profile: PrivateProfile) => session.update({ profile }));
     r.onMessage(MSG_KNOWLEDGE, (knowledge: KnownInfo[]) => session.update({ knowledge }));
+    r.onMessage(MSG_EVIDENCE, (evidence: FoundEvidence[]) => {
+      const before = session.get().evidence.length;
+      session.update({ evidence });
+      const latest = evidence.at(-1);
+      if (evidence.length > before && latest) setStatus(`Found: ${latest.item.title}`);
+    });
+    r.onMessage(MSG_BOARD, (board: Board) => session.update({ board }));
     r.send(MSG_REQUEST_PRIVATE_SYNC);
     setStatus(`room ${r.roomId} · invite: ${location.href}`);
     const self = r.state.players?.get(r.sessionId);
@@ -205,16 +229,25 @@ renderer.setAnimationLoop((now) => {
   }
   syncRemotes(dt);
   syncNpcs(dt);
+  if (room?.state.spots) syncSpots(scene, room.state.spots);
+
+  if (input.wasPressed("toggleBoard")) {
+    const boardOpen = !session.get().boardOpen;
+    session.update({ boardOpen });
+    if (boardOpen && document.pointerLockElement) document.exitPointerLock();
+  }
 
   player.position.set(pos.x, 0.9, pos.z);
   player.rotation.y = facing;
 
   const people = room?.state.npcs ? npcInteractables(room.state.npcs.values()) : [];
-  const target = findInteractable(pos, facing, [...greybox.interactables, ...people]);
+  const spots = room?.state.spots ? spotInteractables(room.state.spots.values()) : [];
+  const target = findInteractable(pos, facing, [...spots, ...people]);
   if (prompt) prompt.textContent = target ? `[E] ${target.label}` : "";
   if (target && input.wasPressed("interact")) {
     const person = room?.state.npcs.get(target.id);
-    setStatus(person ? observationText(person) : `interacted: ${target.kind} ${target.id}`);
+    if (person) setStatus(observationText(person));
+    else room?.send(MSG_INTERACT, { targetId: target.id });
   }
 
   const mode = resolveMode(input.isHeld("aim"), input.isHeld("investigate"));

@@ -1,10 +1,7 @@
 import * as THREE from "three";
 import { GREYBOX_WALLS } from "@vanta/shared";
-import type { Interactable } from "./interaction";
-
 export interface Greybox {
   group: THREE.Group;
-  interactables: Interactable[];
 }
 
 const materials = {
@@ -23,11 +20,5 @@ export function buildGreybox(): Greybox {
     m.position.set((w.minX + w.maxX) / 2, w.height / 2, (w.minZ + w.maxZ) / 2);
     group.add(m);
   }
-  return {
-    group,
-    interactables: [
-      { id: "crate_01", kind: "inspect", label: "Inspect crate", position: { x: 5, z: -5 }, range: 2.2 },
-      { id: "box_02", kind: "search", label: "Search boxes", position: { x: -6, z: 6 }, range: 2.2 },
-    ],
-  };
+  return { group };
 }

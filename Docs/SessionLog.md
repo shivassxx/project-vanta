@@ -63,3 +63,10 @@
 - Tests (78 passing): engine (12), CASE_001 content (6), end-to-end delay consequence reaching only the IGL; existing IGL tests now run through the engine.
 - Known gaps: `subject.alert` and outcomes are only logged (M8); no player-action events yet (evidence/conversations arrive in M7); no outcomes in CASE_001 yet.
 - Next: M7 investigation.
+
+## 2026-10-06 — M7 slice 1: evidence + shared case board
+- Evidence spots (`SpotState`: id, position, visible label) are public; contents stay server-side (`@vanta/content/server` CASE_001_EVIDENCE: café receipt, torn note, parking stub with a plate). `MSG_INTERACT` is validated against the server-side player position; picked-up evidence disappears for everyone and goes only to the finder (`EvidenceStore`). Case engine gets `evidence.found`.
+- Case board (per room/team): pure `applyBoardCommand` reducer — pin evidence/info you hold, add notes, link entries with your own label, remove only what you added. Broadcast to the team; case engine gets `board.pinned` / `board.note` / `board.linked`. No truth/authenticity anywhere.
+- Client: placeholder paper objects, "Examine" prompt, evidence list, board panel (B) with pin/note/link UI; keyboard input is ignored while typing in overlay fields. Removed the M1 placeholder crate interactions.
+- Tests (87 passing): board reducer (5), evidence world/store (3), integration: far player cannot pick up, contents never reach others until pinned, pinning shares with team, notes and links sync. Verified in Chromium: walk to the receipt, pick up, pin, note visible on the second player's board.
+- Remaining M7: phone camera photos, conversations (honest/deceptive witness), CCTV path, vehicle record lookup.
