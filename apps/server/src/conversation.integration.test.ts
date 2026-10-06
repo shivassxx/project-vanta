@@ -2,7 +2,10 @@ import type { Server } from "@colyseus/core";
 import { Bot } from "@vanta/bots";
 import { CASE_001_SUBJECT, CASE_001_WITNESSES, type PersonDef } from "@vanta/content/server";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { PROFESSIONS } from "@vanta/content";
 import { startGameServer } from "./createServer";
+import { InMemoryCharacterRepository } from "./persistence/CharacterRepository";
+import { CharacterService } from "./systems/characters";
 import type { SubjectEvent } from "./systems/subject/npcWorld";
 
 const PORT = 2607;
@@ -20,7 +23,10 @@ const subjectEvents: SubjectEvent[] = [];
 
 let server: Server;
 beforeAll(async () => {
-  server = await startGameServer(PORT, { people, caseTimeScale: 100, rng: () => 0, onSubjectEvent: (e) => subjectEvents.push(e) });
+  // Everyone is an ordinary civilian, so background-gated options never appear in this test.
+  const civilian = PROFESSIONS.findIndex((p) => p.id === "civilian");
+  const characters = new CharacterService(new InMemoryCharacterRepository(), "campaign_test", () => (civilian + 0.5) / PROFESSIONS.length);
+  server = await startGameServer(PORT, { people, characters, caseTimeScale: 100, rng: () => 0, onSubjectEvent: (e) => subjectEvents.push(e) });
 });
 afterAll(async () => {
   await server.gracefullyShutdown(false);
@@ -52,8 +58,7 @@ describe("conversations", () => {
     igl.talk(baristaId);
     await wait(150);
     expect(igl.dialogue?.observed).toContain("round face");
-    const authority = ["police_officer", "security_worker", "private_investigator"].includes(igl.profile?.professionId ?? "");
-    expect(igl.dialogue?.options.map((o) => o.id)).toEqual(["photo", "name", ...(authority ? ["cctv"] : []), "nothing"]);
+    expect(igl.dialogue?.options.map((o) => o.id)).toEqual(["photo", "name", "nothing"]);
     igl.choose("photo");
     await wait(150);
     expect(igl.dialogue?.line).toContain("grey coat");
