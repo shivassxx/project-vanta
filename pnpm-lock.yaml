@@ -32,6 +32,9 @@ importers:
       '@vanta/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      colyseus.js:
+        specifier: ^0.16.22
+        version: 0.16.22
       three:
         specifier: ^0.170.0
         version: 0.170.0
@@ -58,17 +61,38 @@ importers:
         specifier: workspace:*
         version: link:../../packages/shared
     devDependencies:
+      '@vanta/bots':
+        specifier: workspace:*
+        version: link:../../packages/bots
+      colyseus.js:
+        specifier: ^0.16.22
+        version: 0.16.22
       tsx:
         specifier: ^4.19.0
         version: 4.23.15
 
-  packages/bots: {}
+  packages/bots:
+    dependencies:
+      '@vanta/shared':
+        specifier: workspace:*
+        version: link:../shared
+      colyseus.js:
+        specifier: ^0.16.22
+        version: 0.16.22
+    devDependencies:
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
 
   packages/case-engine: {}
 
   packages/content: {}
 
-  packages/shared: {}
+  packages/shared:
+    dependencies:
+      '@colyseus/schema':
+        specifier: ^3.0.76
+        version: 3.0.76
 
 packages:
 
@@ -84,6 +108,10 @@ packages:
 
   '@colyseus/greeting-banner@2.0.6':
     resolution: {integrity: sha512-65nK7KnJn6g3ArtJqNfVX+Mx7xTlBka04kSwloLP7s24UpCEaK7bMGRLgkzfnysARzlVh1eV4jynBWZN82dYwQ==}
+
+  '@colyseus/httpie@2.0.1':
+    resolution: {integrity: sha512-JvABMZzPLiyrUsVj3ElXGORRDTu+NKzXHWd1uV1R1SThAKMm06cVW6bOyADARD65bs8JJoHNNbUkW8KoRvRDzA==}
+    engines: {node: '>=10'}
 
   '@colyseus/msgpackr@1.11.3':
     resolution: {integrity: sha512-P86w/FrZWUaV7StxI7WuNg3wFlUrROSiBOrF378wyOgxS5+etcxUQMPe0OJZDEx+QUdu7QOPzsqE0Ziqwpjnug==}
@@ -835,6 +863,10 @@ packages:
   color-name@1.1.4:
     resolution: {integrity: sha512-dOy+3AuW3a2wNbZHIuMZpTcgjGuLU/uBL/ubcZF9OXbDo8ff4O8yVp5Bf0efS8uEoYo5q4Fx7dY9OgQGXgAsQA==}
 
+  colyseus.js@0.16.22:
+    resolution: {integrity: sha512-xyiajukHvlwOtcziVbXZWmz7yBH3EImovYrGPAe2kVkdubLVYmOjskJuXh2VLlO8XGjyhmNwig9ELz18sTUo9g==}
+    engines: {node: '>= 12.x'}
+
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
 
@@ -1532,6 +1564,8 @@ snapshots:
 
   '@colyseus/greeting-banner@2.0.6': {}
 
+  '@colyseus/httpie@2.0.1': {}
+
   '@colyseus/msgpackr@1.11.3':
     optionalDependencies:
       msgpackr-extract: 3.0.4
@@ -2119,6 +2153,17 @@ snapshots:
       color-name: 1.1.4
 
   color-name@1.1.4: {}
+
+  colyseus.js@0.16.22:
+    dependencies:
+      '@colyseus/httpie': 2.0.1
+      '@colyseus/msgpackr': 1.11.3
+      '@colyseus/schema': 3.0.76
+      tslib: 2.8.1
+      ws: 8.22.0
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
 
   concat-map@0.0.1: {}
 

@@ -14,5 +14,9 @@
     "@colyseus/ws-transport": "^0.16.0",
     "@vanta/shared": "workspace:*"
   },
-  "devDependencies": { "tsx": "^4.19.0" }
+  "devDependencies": {
+    "@vanta/bots": "workspace:*",
+    "colyseus.js": "^0.16.22",
+    "tsx": "^4.19.0"
+  }
 }

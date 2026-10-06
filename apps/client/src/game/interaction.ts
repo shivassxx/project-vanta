@@ -1,4 +1,4 @@
-import type { Vec2 } from "./movement";
+import type { Vec2 } from "@vanta/shared";
 
 export type InteractionKind = "talk" | "inspect" | "photograph" | "open" | "search" | "pickUp" | "enterVehicle" | "useTerminal";
 

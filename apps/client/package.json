@@ -8,6 +8,13 @@
     "build": "tsc -p . && vite build",
     "typecheck": "tsc -p ."
   },
-  "dependencies": { "@vanta/shared": "workspace:*", "three": "^0.170.0" },
-  "devDependencies": { "@types/three": "^0.170.0", "vite": "^6.0.0" }
+  "dependencies": {
+    "@vanta/shared": "workspace:*",
+    "colyseus.js": "^0.16.22",
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.170.0",
+    "vite": "^6.0.0"
+  }
 }

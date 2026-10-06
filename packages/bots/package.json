@@ -5,5 +5,15 @@
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
-  "scripts": { "typecheck": "tsc -p ." }
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "start": "tsx src/run.ts"
+  },
+  "dependencies": {
+    "@vanta/shared": "workspace:*",
+    "colyseus.js": "^0.16.22"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15"
+  }
 }

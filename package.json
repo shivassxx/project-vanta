@@ -12,7 +12,8 @@
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "bots": "pnpm --filter @vanta/bots start"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
