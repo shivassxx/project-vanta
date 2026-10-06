@@ -46,3 +46,12 @@
 ## 2026-10-06 — Exposing the game for remote playtests
 - Vite dev server listens on all interfaces (`host: true`, `allowedHosts: true`) and proxies `/colyseus` (HTTP + WebSocket) to the game server. The client connects to its own origin, so one public port (5173) is enough; works behind port forwarding or a tunnel.
 - Verified: page, matchmaking and WebSocket game traffic over the machine's network IP (bots + two Chromium players, IGL share). In the cloud sandbox the browser had to bypass the sandbox HTTP proxy, which rejects WebSocket upgrades; not relevant on a normal network.
+
+## 2026-10-06 — M5 Subject
+- World people: Subject (Elena Marsh Varga) + 3 civilians, all `NpcState` entries with opaque IDs and identical public fields (position, facing, appearance). Which one is the Subject, the plan and the suspicion stay server-side (`NpcWorld`); the Subject's plan lives in `@vanta/content/server` so it never reaches the client bundle (verified by grepping the client build).
+- Schedule: `Brain` dwells at plan stops and walks the ring road between them (`ring.ts`; real navmesh arrives with the city). Plan is CASE_001 content data.
+- Identification: photo item draws the Subject's face (skin, hair, face shape); in the world players can "Observe person" (E) and get an observation text of the same traits plus clothing/build. A civilian shares hair/skin traits with the Subject so a glance is not enough. No verdict is ever shown.
+- Surveillance: `Awareness` raises hidden suspicion for observers who are close, in the Subject's field of view, sprinting, or tailing for a long time; it decays when left alone. Over the threshold the Subject glances at the observer, hurries to the far side of the ring, skips the next planned stop (visible route change) and then resumes the plan. Emits `subject.noticed/arrived/departed` events (hook for the case engine, M6).
+- Tests (57 passing): ring paths, awareness rules (7), brain schedule + evade (4), NpcWorld (4), observe text, appearance, integration: 4 people synced with identical field sets and no leaked secrets, Subject walks to the coffee shop on schedule.
+- Known gaps: Subject cannot yet leave the district, call police or switch vehicle (M8); evading is a single reaction; no collision between NPCs and players; observe text is only shown in the status line.
+- Next: M6 case engine.

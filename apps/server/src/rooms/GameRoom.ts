@@ -25,6 +25,8 @@ import {
 import { CASE_001_SUBJECT_SIGNAL } from "@vanta/content";
 import { CharacterService, type Rng } from "../systems/characters";
 import { IglSystem } from "../systems/igl";
+import { NpcWorld, type SubjectEvent } from "../systems/subject/npcWorld";
+import type { Observer } from "../systems/subject/awareness";
 import { KnowledgeStore, checkShare } from "../systems/knowledge";
 import type { CharacterRecord } from "../persistence/CharacterRepository";
 
@@ -34,6 +36,10 @@ export interface GameRoomOptions {
   rng?: Rng;
   /** Delay between IGL designation and the first VANTA signal. */
   vantaDelayMs?: number;
+  /** Multiplies NPC simulation speed (tests only). */
+  npcTimeScale?: number;
+  /** Receives Subject events (future case engine hook). */
+  onSubjectEvent?: (e: SubjectEvent) => void;
 }
 
 const finite = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n);
@@ -56,6 +62,8 @@ export class GameRoom extends Room<GameState> {
   private igl!: IglSystem;
   private vantaDelayMs = 4000;
   private signalState: "idle" | "scheduled" | "sent" = "idle";
+  private npcWorld!: NpcWorld;
+  private npcTimeScale = 1;
 
   override onCreate(options: GameRoomOptions): void {
     this.characterService = options.characters;
@@ -63,6 +71,12 @@ export class GameRoom extends Room<GameState> {
     this.igl = new IglSystem(options.rng ?? Math.random, MIN_PLAYERS);
     this.vantaDelayMs = options.vantaDelayMs ?? this.vantaDelayMs;
     this.setState(new GameState());
+    this.npcTimeScale = options.npcTimeScale ?? 1;
+    this.npcWorld = new NpcWorld(undefined, (e) => {
+      console.log(`[NPC] ${e.type}`);
+      options.onSubjectEvent?.(e);
+    });
+    this.npcWorld.populate(this.state.npcs);
     this.onMessage(MSG_REQUEST_PRIVATE_SYNC, (client) => {
       const record = this.characters.get(client.sessionId);
       // Private data goes only to the requesting owner.
@@ -136,6 +150,11 @@ export class GameRoom extends Room<GameState> {
     if (characterId && this.igl.onRemoved(characterId, this.connectedCharacters())) this.onIglChanged();
   }
 
+  private moving(sessionId: string): boolean {
+    const i = this.inputs.get(sessionId);
+    return !!i && (i.x !== 0 || i.y !== 0);
+  }
+
   private connectedCharacters(): CharacterId[] {
     const ids: CharacterId[] = [];
     this.state.players.forEach((p) => p.connected && ids.push(p.characterId));
@@ -194,6 +213,11 @@ export class GameRoom extends Room<GameState> {
   }
 
   private tick(dt: number): void {
+    const observers: Observer[] = [];
+    this.state.players.forEach((p, id) => {
+      if (p.connected) observers.push({ pos: { x: p.x, z: p.z }, sprinting: this.inputs.get(id)?.sprint === true && this.moving(id) });
+    });
+    this.npcWorld.tick(dt * this.npcTimeScale, observers, this.state.npcs);
     this.state.players.forEach((p, id) => {
       const input = this.inputs.get(id);
       if (!input) return;

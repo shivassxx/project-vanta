@@ -55,11 +55,51 @@ export class GameState extends Schema {
   declare players: MapSchema<PlayerState>;
   /** Public: who VANTA designated. Never why. Empty when none. */
   declare iglCharacterId: string;
+  declare npcs: MapSchema<NpcState>;
 
   constructor() {
     super();
     this.players = new MapSchema<PlayerState>();
     this.iglCharacterId = "";
+    this.npcs = new MapSchema<NpcState>();
   }
 }
-defineTypes(GameState, { players: { map: PlayerState }, iglCharacterId: "string" });
+
+/** A simulated person visible in the world. Subjects and civilians look identical here. */
+export class NpcState extends Schema {
+  declare id: string;
+  declare x: number;
+  declare z: number;
+  declare facing: number;
+  declare skin: string;
+  declare hair: string;
+  declare faceShape: string;
+  declare jacket: string;
+  declare build: string;
+
+  constructor() {
+    super();
+    this.id = "";
+    this.x = 0;
+    this.z = 0;
+    this.facing = 0;
+    this.skin = "";
+    this.hair = "";
+    this.faceShape = "";
+    this.jacket = "";
+    this.build = "";
+  }
+}
+defineTypes(NpcState, {
+  id: "string",
+  x: "number",
+  z: "number",
+  facing: "number",
+  skin: "string",
+  hair: "string",
+  faceShape: "string",
+  jacket: "string",
+  build: "string",
+});
+
+defineTypes(GameState, { players: { map: PlayerState }, iglCharacterId: "string", npcs: { map: NpcState } });

@@ -10,5 +10,9 @@
   },
   "dependencies": {
     "@vanta/shared": "workspace:*"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./server": "./src/server.ts"
   }
 }

@@ -23,6 +23,8 @@ import type { Room } from "colyseus.js";
 import { ActionMap } from "./engine/actionMap";
 import { CAMERA_PRESETS, clampPitch, lerpPreset, resolveMode, type CameraPreset } from "./engine/cameraRig";
 import { buildGreybox } from "./game/greybox";
+import { createNpcMesh } from "./game/npcView";
+import { npcInteractables, observationText } from "./game/observe";
 import { findInteractable } from "./game/interaction";
 import { connect } from "./game/network";
 import { SessionStore, type Teammate } from "./game/session";
@@ -52,6 +54,7 @@ scene.add(player);
 const remoteMat = new THREE.MeshStandardMaterial({ color: 0xa36f6f });
 const disconnectedMat = new THREE.MeshStandardMaterial({ color: 0xa36f6f, transparent: true, opacity: 0.3 });
 const remotes = new Map<string, THREE.Mesh>();
+const npcMeshes = new Map<string, THREE.Group>();
 
 const input = new ActionMap();
 addEventListener("keydown", (e) => input.press(e.code));
@@ -124,6 +127,23 @@ let last = performance.now();
 let seq = 0;
 let sendTimer = 0;
 
+function syncNpcs(dt: number): void {
+  if (!room?.state.npcs) return;
+  const k = Math.min(1, dt * 10);
+  room.state.npcs.forEach((n, id) => {
+    let mesh = npcMeshes.get(id);
+    if (!mesh) {
+      mesh = createNpcMesh(n);
+      mesh.position.set(n.x, 0, n.z);
+      scene.add(mesh);
+      npcMeshes.set(id, mesh);
+    }
+    mesh.position.x += (n.x - mesh.position.x) * k;
+    mesh.position.z += (n.z - mesh.position.z) * k;
+    mesh.rotation.y = n.facing;
+  });
+}
+
 function syncRemotes(dt: number): void {
   if (!room?.state.players) return;
   const seen = new Set<string>();
@@ -184,13 +204,18 @@ renderer.setAnimationLoop((now) => {
     room.send(MSG_INPUT, msg);
   }
   syncRemotes(dt);
+  syncNpcs(dt);
 
   player.position.set(pos.x, 0.9, pos.z);
   player.rotation.y = facing;
 
-  const target = findInteractable(pos, facing, greybox.interactables);
+  const people = room?.state.npcs ? npcInteractables(room.state.npcs.values()) : [];
+  const target = findInteractable(pos, facing, [...greybox.interactables, ...people]);
   if (prompt) prompt.textContent = target ? `[E] ${target.label}` : "";
-  if (target && input.wasPressed("interact")) setStatus(`interacted: ${target.kind} ${target.id}`);
+  if (target && input.wasPressed("interact")) {
+    const person = room?.state.npcs.get(target.id);
+    setStatus(person ? observationText(person) : `interacted: ${target.kind} ${target.id}`);
+  }
 
   const mode = resolveMode(input.isHeld("aim"), input.isHeld("investigate"));
   rig = lerpPreset(rig, CAMERA_PRESETS[mode], Math.min(1, dt * 8));

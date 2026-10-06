@@ -9,3 +9,5 @@ Ideas outside the current milestone go here.
 - Private personal objectives.
 - Phone-based evidence sharing between any players (M7), not only IGL sharing.
 - IGL criteria beyond random (still never explained to players).
+- More Subject reactions (enter a building, call someone, switch vehicle, counter-surveil) after M8.
+- Per-NPC voices/barks and a real NPC navmesh once the district grows.

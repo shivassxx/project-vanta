@@ -8,3 +8,4 @@ export * from "./network";
 export * from "./world";
 export * from "./characters";
 export * from "./vanta";
+export * from "./appearance";

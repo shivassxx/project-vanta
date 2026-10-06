@@ -1,4 +1,5 @@
-import { getProfession } from "@vanta/content";
+import { PHOTO_FACES, getProfession } from "@vanta/content";
+import { hairHex, skinHex, type FaceLook } from "@vanta/shared";
 import type { CharacterId, KnownInfo, SubjectInfoItem } from "@vanta/shared";
 import { useState, useSyncExternalStore } from "react";
 import { shortId, type SessionStore, type Teammate } from "../game/session";
@@ -111,11 +112,7 @@ function ItemValue({ item }: { item: SubjectInfoItem }) {
     return (
       <div>
         <div className="vt-label">{item.label}</div>
-        <svg className="vt-photo" viewBox="0 0 60 72" role="img" aria-label="Subject photo placeholder">
-          <rect width="60" height="72" fill="#2a3036" />
-          <circle cx="30" cy="28" r="12" fill="#58626b" />
-          <path d="M8 72 C10 52 50 52 52 72 Z" fill="#58626b" />
-        </svg>
+        <FacePhoto face={PHOTO_FACES[item.value]} />
       </div>
     );
   }
@@ -124,5 +121,27 @@ function ItemValue({ item }: { item: SubjectInfoItem }) {
       <div className="vt-label">{item.label}</div>
       <div>{item.value}</div>
     </div>
+  );
+}
+
+const hex = (n: number) => `#${n.toString(16).padStart(6, "0")}`;
+const FACE_RX: Record<string, number> = { round: 14, oval: 11.5, angular: 12.5 };
+const FACE_RY: Record<string, number> = { round: 14, oval: 16, angular: 15 };
+
+/** Face-only portrait drawn from the same traits a player can observe in the world. */
+function FacePhoto({ face }: { face: FaceLook | undefined }) {
+  if (!face) return <div className="vt-muted vt-small">photo unavailable</div>;
+  const rx = FACE_RX[face.faceShape] ?? 12;
+  const ry = FACE_RY[face.faceShape] ?? 15;
+  return (
+    <svg className="vt-photo" viewBox="0 0 60 72" role="img" aria-label="Subject photo">
+      <rect width="60" height="72" fill="#2a3036" />
+      <path d="M6 72 C8 54 52 54 54 72 Z" fill="#3d454c" />
+      <ellipse cx="30" cy="34" rx={rx} ry={ry} fill={hex(skinHex(face.skin))} />
+      <path d={`M${30 - rx - 1} 32 C${30 - rx} 10 ${30 + rx} 10 ${30 + rx + 1} 32 C${30 + rx - 3} 22 ${30 - rx + 3} 22 ${30 - rx - 1} 32 Z`} fill={hex(hairHex(face.hair))} />
+      <circle cx="25" cy="35" r="1.3" fill="#1b1b1d" />
+      <circle cx="35" cy="35" r="1.3" fill="#1b1b1d" />
+      <path d="M26 43 Q30 46 34 43" stroke="#1b1b1d" strokeWidth="1" fill="none" />
+    </svg>
   );
 }
