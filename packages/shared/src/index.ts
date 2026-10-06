@@ -11,3 +11,4 @@ export * from "./vanta";
 export * from "./appearance";
 export * from "./evidence";
 export * from "./dialogue";
+export * from "./abilities";

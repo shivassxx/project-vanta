@@ -60,3 +60,16 @@ describe("CASE_001 rules", () => {
     expect(state.flags.parkMeetingHappened).toBe(true);
   });
 });
+
+describe("CASE_001 vehicle traces", () => {
+  it("remembers forcing the sedan's door as a crime", () => {
+    const { state } = play([...start, { type: "conversation.choice", at: 50, payload: { conversation: "vehicle_sedan", option: "window.force" } }]);
+    expect(state.flags.sedanBrokenInto).toBe(true);
+    expect(state.counters.crimes).toBe(1);
+  });
+
+  it("records a police plate lookup in the access log", () => {
+    const { state } = play([...start, { type: "police.plateLookup", at: 50 }]);
+    expect(state.flags.policeLookupLogged).toBe(true);
+  });
+});

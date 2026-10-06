@@ -3,7 +3,8 @@ import { CASE_001_SUBJECT_SIGNAL } from "./case001";
 
 /**
  * SERVER-ONLY. CASE_001 as data. Events come from the server:
- *   igl.designated, time, subject.noticed, subject.arrived {note}, subject.departed {note}, info.shared {itemId}
+ *   igl.designated, time, subject.noticed, subject.arrived {note}, subject.departed {note}, info.shared {itemId},
+ *   evidence.found {evidenceId}, conversation.choice {conversation, option}, police.plateLookup, pi.dmvRequest
  * Effects go to the server:
  *   vanta.deliver {items}  -> VANTA sends items to the IGL
  *   subject.alert {level}  -> Subject behavior changes (acted on in M8)
@@ -47,6 +48,16 @@ export const CASE_001_RULES: CaseDef = {
       when: { payload: "note", equals: "park bench, meets someone" },
       do: [{ setFlag: "parkMeetingHappened", value: true }],
     },
+
+    // Vehicle: how the team learned who owns the sedan leaves different traces.
+    {
+      id: "sedan_break_in",
+      on: "conversation.choice",
+      when: { any: [{ payload: "option", equals: "start.force" }, { payload: "option", equals: "window.force" }] },
+      do: [{ setFlag: "sedanBrokenInto", value: true }, { increment: "crimes" }],
+    },
+    { id: "plate_lookup_logged", on: "police.plateLookup", do: [{ setFlag: "policeLookupLogged", value: true }] },
+    { id: "dmv_request", on: "pi.dmvRequest", do: [{ setFlag: "dmvRequestFiled", value: true }] },
 
     // Consequence for excessive delay: the Subject relocates and VANTA only knows roughly where.
     {

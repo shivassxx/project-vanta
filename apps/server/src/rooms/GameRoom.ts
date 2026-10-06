@@ -11,6 +11,9 @@ import {
   MSG_INTERACT,
   MSG_KNOWLEDGE,
   MSG_SHARE_ITEM,
+  MSG_ABILITIES,
+  MSG_USE_ABILITY,
+  type EvidenceItem,
   MSG_DIALOGUE,
   MSG_TALK,
   MSG_TALK_CHOICE,
@@ -34,6 +37,8 @@ import {
   type JoinOptions,
 } from "@vanta/shared";
 import {
+  CASE_001_ABILITIES,
+  CASE_001_VEHICLES,
   CASE_001_CONVERSATIONS,
   CASE_001_EVIDENCE,
   CASE_001_EVIDENCE_ITEMS,
@@ -43,6 +48,8 @@ import {
   type PersonDef,
 } from "@vanta/content/server";
 import { choose, nodeView, type TalkerContext } from "../systems/conversations";
+import { availableAbilities } from "../systems/abilities";
+import { VehicleWorld } from "../systems/vehicles";
 import { applyBoardCommand, emptyBoard } from "../systems/board";
 import { EvidenceStore, EvidenceWorld } from "../systems/evidence";
 import type { Effect } from "@vanta/case-engine";
@@ -94,6 +101,9 @@ export class GameRoom extends Room<GameState> {
   private evidenceWorld!: EvidenceWorld;
   private board: Board = emptyBoard();
   private boardIds = 0;
+  private vehicleWorld!: VehicleWorld;
+  /** Abilities each character has already used (one use per case). */
+  private readonly usedAbilities = new Map<CharacterId, Set<string>>();
   /** Open conversations by session ID. */
   private readonly talks = new Map<string, { npcId: string; conversation: string; node: string }>();
   private caseTimeScale = 1;
@@ -121,6 +131,9 @@ export class GameRoom extends Room<GameState> {
     this.evidence = options.evidence;
     this.evidenceWorld = new EvidenceWorld(options.evidenceSpots ?? CASE_001_EVIDENCE);
     this.evidenceWorld.populate(this.state.spots);
+    this.vehicleWorld = new VehicleWorld(CASE_001_VEHICLES);
+    this.vehicleWorld.populate(this.state.vehicles);
+    this.onMessage(MSG_USE_ABILITY, (client, raw) => this.handleAbility(client, raw));
     this.onMessage(MSG_INTERACT, (client, raw) => this.handleInteract(client, raw));
     this.onMessage(MSG_BOARD_COMMAND, (client, raw) => this.handleBoard(client, raw));
     this.onMessage(MSG_TALK, (client, raw) => this.handleTalk(client, raw));
@@ -133,6 +146,7 @@ export class GameRoom extends Room<GameState> {
       client.send(MSG_PRIVATE_PROFILE, CharacterService.toPrivateProfile(record));
       client.send(MSG_KNOWLEDGE, this.knowledge.list(record.id));
       client.send(MSG_EVIDENCE, this.evidence.list(record.id));
+      client.send(MSG_ABILITIES, this.abilitiesOf(record.id));
       client.send(MSG_BOARD, this.board);
     });
     this.onMessage(MSG_SHARE_ITEM, (client, raw) => this.handleShare(client, raw));
@@ -268,11 +282,7 @@ export class GameRoom extends Room<GameState> {
     const r = this.evidenceWorld.examine((raw as { targetId?: unknown } | null)?.targetId, { x: p.x, z: p.z });
     if (!r.ok) return;
     if (r.removed) this.state.spots.delete(r.def.spotId);
-    if (this.evidence.grant(characterId, { item: r.def.item, foundBy: characterId, foundAt: Date.now() })) {
-      client.send(MSG_EVIDENCE, this.evidence.list(characterId));
-      console.log(`[Evidence] ${characterId} found ${r.def.item.id}`);
-      this.caseRunner.feed("evidence.found", { evidenceId: r.def.item.id });
-    }
+    this.grantEvidence(characterId, r.def.item);
   }
 
   private talkerContext(characterId: CharacterId): TalkerContext {
@@ -284,10 +294,10 @@ export class GameRoom extends Room<GameState> {
     };
   }
 
-  /** Returns the person if the player is close enough to talk; checked with server positions. */
+  /** Returns the person or vehicle if the player is close enough; checked with server positions. */
   private reachablePerson(sessionId: string, npcId: unknown) {
     const p = this.state.players.get(sessionId);
-    const person = typeof npcId === "string" ? this.npcWorld.find(npcId) : undefined;
+    const person = typeof npcId === "string" ? (this.npcWorld.find(npcId) ?? this.vehicleWorld.find(npcId)) : undefined;
     if (!p || !person || Math.hypot(person.pos.x - p.x, person.pos.z - p.z) > TALK_RANGE + 0.5) return undefined;
     return { person, from: { x: p.x, z: p.z } };
   }
@@ -327,11 +337,7 @@ export class GameRoom extends Room<GameState> {
     if (!r.ok) return;
     this.caseRunner.feed("conversation.choice", { conversation: def.id, option: `${talk.node}.${r.option.id}` });
     const testimony = r.option.gives ? CASE_001_EVIDENCE_ITEMS.get(r.option.gives) : undefined;
-    if (testimony && this.evidence.grant(characterId, { item: testimony, foundBy: characterId, foundAt: Date.now() })) {
-      client.send(MSG_EVIDENCE, this.evidence.list(characterId));
-      console.log(`[Evidence] ${characterId} heard ${testimony.id}`);
-      this.caseRunner.feed("evidence.found", { evidenceId: testimony.id });
-    }
+    if (testimony) this.grantEvidence(characterId, testimony);
     const view = r.next ? nodeView(def, r.next, ctx) : undefined;
     if (!view || !r.next) {
       this.talks.delete(client.sessionId);
@@ -340,6 +346,44 @@ export class GameRoom extends Room<GameState> {
     }
     talk.node = r.next;
     this.sendDialogue(client, { npcId: talk.npcId, observed: reach.person.observed, ...view, ended: false });
+  }
+
+  /** Gives evidence to a character, refreshes their private lists and tells the case engine. */
+  private grantEvidence(characterId: CharacterId, item: EvidenceItem): void {
+    if (!this.evidence.grant(characterId, { item, foundBy: characterId, foundAt: Date.now() })) return;
+    const client = this.clientFor(characterId);
+    client?.send(MSG_EVIDENCE, this.evidence.list(characterId));
+    client?.send(MSG_ABILITIES, this.abilitiesOf(characterId));
+    console.log(`[Evidence] ${characterId} obtained ${item.id}`);
+    this.caseRunner.feed("evidence.found", { evidenceId: item.id });
+  }
+
+  private abilitiesOf(characterId: CharacterId) {
+    const record = [...this.characters.values()].find((r) => r.id === characterId);
+    return availableAbilities(
+      CASE_001_ABILITIES,
+      record?.professionId ?? "",
+      (id) => !!this.evidence.has(characterId, id),
+      this.usedAbilities.get(characterId) ?? new Set(),
+    );
+  }
+
+  private handleAbility(client: Client, raw: unknown): void {
+    const characterId = this.characters.get(client.sessionId)?.id;
+    const id = (raw as { id?: unknown } | null)?.id;
+    if (!characterId || !this.abilitiesOf(characterId).some((a) => a.id === id)) return;
+    const def = CASE_001_ABILITIES.find((a) => a.id === id);
+    const item = def && CASE_001_EVIDENCE_ITEMS.get(def.grants);
+    if (!def || !item) return;
+    const used = this.usedAbilities.get(characterId) ?? new Set<string>();
+    used.add(def.id);
+    this.usedAbilities.set(characterId, used);
+    client.send(MSG_ABILITIES, this.abilitiesOf(characterId));
+    console.log(`[Investigation] ${characterId} used ${def.id}`);
+    this.caseRunner.feed(def.caseEvent);
+    const deliver = () => this.grantEvidence(characterId, item);
+    if (def.delaySec > 0) this.clock.setTimeout(deliver, (def.delaySec * 1000) / this.caseTimeScale);
+    else deliver();
   }
 
   /** Team case board: shared with everyone in the room once something is pinned. */

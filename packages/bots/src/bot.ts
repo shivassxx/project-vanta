@@ -10,7 +10,10 @@ import {
   MSG_KNOWLEDGE,
   MSG_PRIVATE_PROFILE,
   MSG_SHARE_ITEM,
+  MSG_ABILITIES,
   MSG_DIALOGUE,
+  MSG_USE_ABILITY,
+  type AbilityView,
   MSG_TALK,
   MSG_TALK_CHOICE,
   type DialogueView,
@@ -46,6 +49,7 @@ export class Bot {
   evidence: FoundEvidence[] = [];
   board: Board = { entries: [], links: [] };
   dialogue?: DialogueView;
+  abilities: AbilityView[] = [];
 
   constructor(private readonly opts: BotOptions) {
     this.client = new Client(opts.endpoint);
@@ -70,6 +74,7 @@ export class Bot {
       if (type === MSG_EVIDENCE) this.evidence = message as FoundEvidence[];
       if (type === MSG_BOARD) this.board = message as Board;
       if (type === MSG_DIALOGUE) this.dialogue = message as DialogueView;
+      if (type === MSG_ABILITIES) this.abilities = message as AbilityView[];
     });
     room.send(MSG_REQUEST_PRIVATE_SYNC);
   }
@@ -111,6 +116,32 @@ export class Bot {
 
   interact(targetId: string): void {
     this.room?.send(MSG_INTERACT, { targetId });
+  }
+
+  useAbility(id: string): void {
+    this.room?.send(MSG_USE_ABILITY, { id });
+  }
+
+  /**
+   * Walks to a point through server-validated movement: first along X, then along Z
+   * (enough for the open greybox paths used in tests). Resolves when within `tolerance`.
+   */
+  async walkTo(target: { x: number; z: number }, tolerance = 0.3, timeoutMs = 15000): Promise<void> {
+    const until = Date.now() + timeoutMs;
+    for (const axis of ["x", "z"] as const) {
+      for (;;) {
+        const p = this.position();
+        if (!p) throw new Error("not in room");
+        const d = target[axis] - p[axis];
+        if (Math.abs(d) <= tolerance) break;
+        if (Date.now() > until) throw new Error(`walkTo timed out at ${p.x.toFixed(1)},${p.z.toFixed(1)}`);
+        // yaw 0: +x axis = +X, +y axis (forward) = -Z
+        this.sendInput(axis === "x" ? { x: Math.sign(d), y: 0 } : { x: 0, y: -Math.sign(d) });
+        await new Promise((r) => setTimeout(r, Math.abs(d) < 0.6 ? 20 : 50));
+      }
+      this.sendInput({ x: 0, y: 0 });
+      await new Promise((r) => setTimeout(r, 120));
+    }
   }
 
   talk(npcId: string): void {

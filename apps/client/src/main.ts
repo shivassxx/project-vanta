@@ -11,7 +11,10 @@ import {
   MSG_PRIVATE_PROFILE,
   MSG_REQUEST_PRIVATE_SYNC,
   MSG_SHARE_ITEM,
+  MSG_ABILITIES,
   MSG_DIALOGUE,
+  MSG_USE_ABILITY,
+  type AbilityView,
   MSG_TALK,
   MSG_TALK_CHOICE,
   MSG_TALK_END,
@@ -38,6 +41,7 @@ import { buildGreybox } from "./game/greybox";
 import { createNpcMesh } from "./game/npcView";
 import { npcInteractables } from "./game/observe";
 import { syncSpots, spotInteractables } from "./game/spots";
+import { syncVehicles, vehicleInteractables } from "./game/vehicles";
 import { findInteractable } from "./game/interaction";
 import { connect } from "./game/network";
 import { SessionStore, type Teammate } from "./game/session";
@@ -117,6 +121,7 @@ mountOverlay(
     onBoard: (cmd: BoardCommand) => room?.send(MSG_BOARD_COMMAND, cmd),
     onChoose: (optionId) => room?.send(MSG_TALK_CHOICE, { optionId }),
     onLeaveTalk: leaveTalk,
+    onAbility: (id) => room?.send(MSG_USE_ABILITY, { id }),
   },
   session,
 );
@@ -146,6 +151,7 @@ connect()
       if (evidence.length > before && latest) setStatus(`Found: ${latest.item.title}`);
     });
     r.onMessage(MSG_BOARD, (board: Board) => session.update({ board }));
+    r.onMessage(MSG_ABILITIES, (abilities: AbilityView[]) => session.update({ abilities }));
     r.onMessage(MSG_DIALOGUE, (dialogue: DialogueView) => session.update({ dialogue: dialogue.ended ? undefined : dialogue }));
     r.send(MSG_REQUEST_PRIVATE_SYNC);
     setStatus(`room ${r.roomId} · invite: ${location.href}`);
@@ -244,6 +250,7 @@ renderer.setAnimationLoop((now) => {
   syncRemotes(dt);
   syncNpcs(dt);
   if (room?.state.spots) syncSpots(scene, room.state.spots);
+  if (room?.state.vehicles) syncVehicles(scene, room.state.vehicles);
 
   if (input.wasPressed("toggleBoard")) {
     const boardOpen = !session.get().boardOpen;
@@ -256,19 +263,20 @@ renderer.setAnimationLoop((now) => {
 
   const people = room?.state.npcs ? npcInteractables(room.state.npcs.values()) : [];
   const spots = room?.state.spots ? spotInteractables(room.state.spots.values()) : [];
-  const target = findInteractable(pos, facing, [...spots, ...people]);
+  const cars = room?.state.vehicles ? vehicleInteractables(room.state.vehicles.values()) : [];
+  const target = findInteractable(pos, facing, [...spots, ...people, ...cars]);
   if (prompt) prompt.textContent = target && !session.get().dialogue ? `[E] ${target.label}` : "";
   const dialogue = session.get().dialogue;
   if (dialogue) {
     // Walking away ends the conversation.
-    const npc = room?.state.npcs.get(dialogue.npcId);
-    if (!npc || Math.hypot(npc.x - pos.x, npc.z - pos.z) > 4) leaveTalk();
+    const other = room?.state.npcs.get(dialogue.npcId) ?? room?.state.vehicles.get(dialogue.npcId);
+    if (!other || Math.hypot(other.x - pos.x, other.z - pos.z) > 4.5) leaveTalk();
     (["choice1", "choice2", "choice3", "choice4"] as const).forEach((a, i) => {
       const option = dialogue.options[i];
       if (option && input.wasPressed(a)) room?.send(MSG_TALK_CHOICE, { optionId: option.id });
     });
   } else if (target && input.wasPressed("interact")) {
-    if (room?.state.npcs.has(target.id)) {
+    if (room?.state.npcs.has(target.id) || room?.state.vehicles.has(target.id)) {
       room.send(MSG_TALK, { npcId: target.id });
       if (document.pointerLockElement) document.exitPointerLock();
     } else room?.send(MSG_INTERACT, { targetId: target.id });

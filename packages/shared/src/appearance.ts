@@ -57,3 +57,11 @@ export function describeLook(look: NpcLook): string {
   const jacket = find(JACKET_COLORS, look.jacket).name;
   return `${look.build} build, ${look.faceShape} face, ${skin} skin, ${hair} hair, ${jacket} jacket`;
 }
+
+export const VEHICLE_COLORS: readonly PaletteEntry[] = [
+  { id: "car_grey", hex: 0x7d838a, name: "grey" },
+  { id: "car_red", hex: 0x8e2a26, name: "red" },
+  { id: "car_white", hex: 0xd8d8d4, name: "white" },
+];
+
+export const vehicleHex = (id: string) => find(VEHICLE_COLORS, id).hex;

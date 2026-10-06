@@ -57,6 +57,7 @@ export class GameState extends Schema {
   declare iglCharacterId: string;
   declare npcs: MapSchema<NpcState>;
   declare spots: MapSchema<SpotState>;
+  declare vehicles: MapSchema<VehicleState>;
 
   constructor() {
     super();
@@ -64,6 +65,7 @@ export class GameState extends Schema {
     this.iglCharacterId = "";
     this.npcs = new MapSchema<NpcState>();
     this.spots = new MapSchema<SpotState>();
+    this.vehicles = new MapSchema<VehicleState>();
   }
 }
 
@@ -122,9 +124,29 @@ export class SpotState extends Schema {
 }
 defineTypes(SpotState, { id: "string", x: "number", z: "number", label: "string" });
 
+/** A parked or moving vehicle. Model and color are visible from afar; the plate is read up close. */
+export class VehicleState extends Schema {
+  declare id: string;
+  declare x: number;
+  declare z: number;
+  declare heading: number;
+  declare color: string;
+
+  constructor() {
+    super();
+    this.id = "";
+    this.x = 0;
+    this.z = 0;
+    this.heading = 0;
+    this.color = "";
+  }
+}
+defineTypes(VehicleState, { id: "string", x: "number", z: "number", heading: "number", color: "string" });
+
 defineTypes(GameState, {
   players: { map: PlayerState },
   iglCharacterId: "string",
   npcs: { map: NpcState },
   spots: { map: SpotState },
+  vehicles: { map: VehicleState },
 });

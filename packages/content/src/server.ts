@@ -6,3 +6,5 @@ export * from "./conversations/types";
 export * from "./conversations/case001Conversations";
 export * from "./conversations/validate";
 export * from "./cases/case001EvidenceIndex";
+export * from "./cases/case001Vehicles";
+export * from "./cases/case001Abilities";

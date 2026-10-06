@@ -1,4 +1,4 @@
-import type { Board, CharacterId, DialogueView, FoundEvidence, KnownInfo, PrivateProfile } from "@vanta/shared";
+import type { AbilityView, Board, CharacterId, DialogueView, FoundEvidence, KnownInfo, PrivateProfile } from "@vanta/shared";
 
 export interface Teammate {
   characterId: CharacterId;
@@ -15,6 +15,7 @@ export interface SessionView {
   board: Board;
   boardOpen: boolean;
   dialogue?: DialogueView;
+  abilities: AbilityView[];
 }
 
 type Listener = () => void;
@@ -27,6 +28,7 @@ export class SessionStore {
     evidence: [],
     board: { entries: [], links: [] },
     boardOpen: false,
+    abilities: [],
   };
   private readonly listeners = new Set<Listener>();
 

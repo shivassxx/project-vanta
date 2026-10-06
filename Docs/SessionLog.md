@@ -78,3 +78,13 @@
 - Client: dialogue panel (mouse or keys 1-4, walk away to end).
 - Tests (96 passing): conversation gating/tree (4), content validation (3), witnesses stay put, Subject notices a talker, integration: hidden option not shown and forged choice ignored, IGL with photo gets testimony that never reaches the other player, talking to the Subject is noticed, out-of-range talk refused. Verified in Chromium: walk to the barista, show photo, statement added to evidence.
 - Remaining M7: phone camera photos, CCTV path, vehicle record lookup.
+
+## 2026-10-06 — M7 slice 3: vehicle clue
+- `VehicleState` (id, position, heading, color) is public; model, plate and owner are server-only (`CASE_001_VEHICLES`). The grey sedan CAL-7Q34 stands by the office lot.
+- Examining a vehicle reuses the conversation system: look through the window (observation evidence: permit, grey coat on the back seat, child's drawing) or force the door (crime; registration from the glovebox).
+- Background abilities (`CASE_001_ABILITIES`, computed per player on the server and sent privately): police officer runs the plate instantly (case event `police.plateLookup` -> access-log flag); private investigator files a DMV request that arrives after 60 case seconds. Both require holding something with the plate on it; each can be used once.
+- Registration: Raymond Yates (R.Y. on the café receipt; grey coat matches the barista's statement). Nothing states what that means.
+- CASE_001 rules record `sedanBrokenInto` + `crimes`, `policeLookupLogged`, `dmvRequestFiled` for M8 police consequences.
+- Tests (103 passing): ability availability (3), vehicle trace rules (2), integration: plate never in public state, police instant lookup, PI delayed result, forged ability ignored, forced door path; bots now walk with server-validated movement (`Bot.walkTo`). Verified in Chromium.
+- Known gaps: vehicles have no collision and cannot be driven yet; vehicle colliders should join the shared collision list.
+- Remaining M7: phone camera photos, CCTV path.

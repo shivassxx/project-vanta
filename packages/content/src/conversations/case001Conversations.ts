@@ -1,4 +1,5 @@
 import type { EvidenceItem } from "@vanta/shared";
+import { SEDAN_INTERACTION } from "../cases/case001Vehicles";
 import type { ConversationDef } from "./types";
 
 const PHOTO = "case001.subject.photo";
@@ -132,5 +133,5 @@ export const SUBJECT_CONVERSATION: ConversationDef = {
 };
 
 export const CASE_001_CONVERSATIONS: ReadonlyMap<string, ConversationDef> = new Map(
-  [BARISTA, SMOKER, GENERIC_CIVILIAN, SUBJECT_CONVERSATION].map((c) => [c.id, c]),
+  [BARISTA, SMOKER, GENERIC_CIVILIAN, SUBJECT_CONVERSATION, SEDAN_INTERACTION].map((c) => [c.id, c]),
 );

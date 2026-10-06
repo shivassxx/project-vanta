@@ -12,9 +12,10 @@ export interface OverlayProps {
   onBoard: (cmd: BoardCommand) => void;
   onChoose: (optionId: string) => void;
   onLeaveTalk: () => void;
+  onAbility: (id: string) => void;
 }
 
-export function Overlay({ store, onShare, onBoard, onChoose, onLeaveTalk }: OverlayProps) {
+export function Overlay({ store, onShare, onBoard, onChoose, onLeaveTalk, onAbility }: OverlayProps) {
   const view = useSyncExternalStore(store.subscribe, store.get);
   const self = view.profile?.characterId;
   const isIgl = !!self && view.iglCharacterId === self;
@@ -30,6 +31,16 @@ export function Overlay({ store, onShare, onBoard, onChoose, onLeaveTalk }: Over
           <div className="vt-box vt-muted">{isIgl ? "DESIGNATION: IGL" : `IGL: ${shortId(view.iglCharacterId)}`}</div>
         )}
         {isIgl && fromVanta.length > 0 && <IglPanel items={fromVanta.map((k) => k.item)} teammates={others} onShare={onShare} />}
+        {view.abilities.length > 0 && (
+          <div className="vt-box">
+            <div className="vt-title">ACTIONS · private</div>
+            {view.abilities.map((a) => (
+              <div key={a.id} className="vt-share">
+                <button onClick={() => onAbility(a.id)}>{a.label}</button>
+              </div>
+            ))}
+          </div>
+        )}
         {view.evidence.length > 0 && (
           <div className="vt-box">
             <div className="vt-title">EVIDENCE</div>
