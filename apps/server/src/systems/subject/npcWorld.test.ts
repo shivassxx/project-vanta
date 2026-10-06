@@ -75,3 +75,31 @@ describe("NpcWorld people", () => {
     expect(events.map((e) => e.type)).toEqual(["subject.noticed"]);
   });
 });
+
+describe("NpcWorld consequences", () => {
+  it("lets the Subject leave the district and removes them from the world", () => {
+    const events: SubjectEvent[] = [];
+    const world = new NpcWorld([CASE_001_SUBJECT, ...CASE_001_CIVILIANS], (e) => events.push(e));
+    const npcs = new Map<string, NpcState>();
+    world.populate(npcs);
+    world.subjectLeave();
+    for (let t = 0; t < 400; t++) world.tick(0.1, [], npcs);
+    expect(events.at(-1)).toEqual({ type: "subject.leftDistrict", key: "subject" });
+    expect(npcs.size).toBe(CASE_001_CIVILIANS.length);
+    expect(world.subjectPosition()).toBeUndefined();
+  });
+
+  it("does not spawn people the campaign remembers as gone", () => {
+    const world = new NpcWorld([CASE_001_SUBJECT, ...CASE_001_CIVILIANS], undefined, (key) => (key === "subject" ? "gone" : "present"));
+    expect(world.subjectPosition()).toBeUndefined();
+  });
+
+  it("finds witnesses in range with a clear line of sight", () => {
+    const world = new NpcWorld([CASE_001_WITNESSES[0] ?? CASE_001_SUBJECT]);
+    const at = CASE_001_WITNESSES[0]?.standAt ?? { x: 0, z: 0 };
+    const wall = { minX: at.x - 5, maxX: at.x + 5, minZ: at.z - 2.5, maxZ: at.z - 2 };
+    expect(world.witnessesNear({ x: at.x, z: at.z - 4 }, 8, [])).toBe(true);
+    expect(world.witnessesNear({ x: at.x, z: at.z - 4 }, 8, [wall])).toBe(false);
+    expect(world.witnessesNear({ x: at.x, z: at.z - 20 }, 8, [])).toBe(false);
+  });
+});

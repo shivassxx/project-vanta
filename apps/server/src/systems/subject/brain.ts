@@ -2,10 +2,10 @@ import type { Vec2 } from "@vanta/shared";
 import type { Stop } from "@vanta/content/server";
 import { RING_NODES, farthestNode, ringPath } from "./ring";
 
-export type BrainMode = "routine" | "evading";
+export type BrainMode = "routine" | "evading" | "leaving";
 
 export interface BrainEvent {
-  type: "arrived" | "departed" | "evade";
+  type: "arrived" | "departed" | "evade" | "left";
   node: number;
   note?: string;
 }
@@ -55,6 +55,10 @@ export class Brain {
 
   tick(dt: number, emit: (e: BrainEvent) => void = () => undefined): void {
     if (this.path.length === 0) {
+      if (this.mode === "leaving") {
+        emit({ type: "left", node: this.nodeIdx });
+        return;
+      }
       this.dwellLeft -= dt;
       if (this.dwellLeft > 0) return;
       this.beginNextLeg(emit);
@@ -62,7 +66,7 @@ export class Brain {
     }
     const next = RING_NODES[this.path[0] ?? -1];
     if (!next) return;
-    const speed = this.walkSpeed * (this.mode === "evading" ? HURRIED_FACTOR : 1);
+    const speed = this.walkSpeed * (this.mode === "routine" ? 1 : HURRIED_FACTOR);
     const dx = next.x - this.pos.x;
     const dz = next.z - this.pos.z;
     const dist = Math.hypot(dx, dz);
@@ -72,6 +76,10 @@ export class Brain {
       this.pos = { ...next };
       this.nodeIdx = this.path.shift() ?? this.nodeIdx;
       if (this.path.length === 0) {
+        if (this.mode === "leaving") {
+          emit({ type: "left", node: this.nodeIdx });
+          return;
+        }
         emit({ type: "arrived", node: this.nodeIdx, note: this.currentNote });
         if (this.mode === "evading") {
           this.dwellLeft = EVADE_DWELL_SEC;
@@ -101,6 +109,15 @@ export class Brain {
     }
     this.advanceStopAfterEvade();
     emit({ type: "evade", node: target });
+  }
+
+  /** Walks (hurried) to the nearest exit node and then leaves the district for good. */
+  leave(exitNodes: readonly number[]): void {
+    if (this.mode === "leaving") return;
+    this.mode = "leaving";
+    const paths = exitNodes.map((n) => ringPath(this.nodeIdx, n)).sort((a, b) => a.length - b.length);
+    this.path = paths[0] ?? [];
+    this.dwellLeft = 0;
   }
 
   private advanceStopAfterEvade(): void {

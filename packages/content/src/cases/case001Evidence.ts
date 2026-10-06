@@ -71,12 +71,13 @@ export const DVR_INTERACTION: ConversationDef = {
     start: {
       line: "A locked service door. Through the gap: a recorder blinking on a shelf, wired to the café cameras.",
       options: [
-        { id: "break", text: "Force the lock and copy this morning's footage. [crime]", next: "copied" },
+        { id: "break", text: "Force the lock and copy this morning's footage. [crime]", next: "copied", crime: "dvr_access" },
         {
           id: "port",
           text: "You know this kind of recorder. Reach its maintenance port through the gap. [crime, IT background]",
           requires: { profession: ["it_worker"] },
           next: "copied",
+          crime: "dvr_access",
         },
         { id: "leave", text: "Leave it." },
       ],

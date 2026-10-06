@@ -50,14 +50,14 @@ export const SEDAN_INTERACTION: ConversationDef = {
       line: "A grey Calder Motors Avenir, parked nose-in. Plate CAL-7Q34.",
       options: [
         { id: "window", text: "Look through the window.", next: "window", gives: "case001.ev.sedanObserved" },
-        { id: "force", text: "Force the driver's door. [crime]", next: "glovebox", gives: "case001.ev.sedanObserved" },
+        { id: "force", text: "Force the driver's door. [crime]", next: "glovebox", gives: "case001.ev.sedanObserved", crime: "vehicle_break_in" },
         { id: "leave", text: "Step back." },
       ],
     },
     window: {
       line: "An office park permit on the dash. A grey coat folded on the back seat. A child's drawing tucked into the sun visor.",
       options: [
-        { id: "force", text: "Force the driver's door. [crime]", next: "glovebox" },
+        { id: "force", text: "Force the driver's door. [crime]", next: "glovebox", crime: "vehicle_break_in" },
         { id: "leave", text: "Step back." },
       ],
     },

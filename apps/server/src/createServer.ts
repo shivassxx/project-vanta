@@ -3,6 +3,7 @@ import { Server } from "@colyseus/core";
 import { WebSocketTransport } from "@colyseus/ws-transport";
 import { GAME_ROOM_NAME } from "@vanta/shared";
 import { InMemoryCharacterRepository } from "./persistence/CharacterRepository";
+import { InMemoryWorldRepository } from "./persistence/WorldRepository";
 import { GameRoom, type GameRoomOptions } from "./rooms/GameRoom";
 import { CharacterService } from "./systems/characters";
 import { EvidenceStore } from "./systems/evidence";
@@ -16,6 +17,8 @@ export async function startGameServer(port: number, overrides: Partial<GameRoomO
     characters: new CharacterService(new InMemoryCharacterRepository(), DEV_CAMPAIGN_ID),
     knowledge: new KnowledgeStore(),
     evidence: new EvidenceStore(),
+    world: new InMemoryWorldRepository(),
+    campaignId: DEV_CAMPAIGN_ID,
     ...overrides,
   };
   const httpServer = createServer((req, res) => {

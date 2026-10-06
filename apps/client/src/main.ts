@@ -15,6 +15,9 @@ import {
   MSG_DIALOGUE,
   MSG_USE_ABILITY,
   MSG_TAKE_PHOTO,
+  MSG_PHONE,
+  MSG_VANTA_NOTICE,
+  type PhoneMessage,
   type AbilityView,
   MSG_TALK,
   MSG_TALK_CHOICE,
@@ -159,6 +162,11 @@ connect()
     });
     r.onMessage(MSG_BOARD, (board: Board) => session.update({ board }));
     r.onMessage(MSG_ABILITIES, (abilities: AbilityView[]) => session.update({ abilities }));
+    r.onMessage(MSG_PHONE, (phone: PhoneMessage[]) => {
+      if (phone.length > session.get().phone.length) setStatus("Your phone buzzes.");
+      session.update({ phone });
+    });
+    r.onMessage(MSG_VANTA_NOTICE, (n: { text: string }) => session.update({ vantaNotice: n.text }));
     r.onMessage(MSG_DIALOGUE, (dialogue: DialogueView) => session.update({ dialogue: dialogue.ended ? undefined : dialogue }));
     r.send(MSG_REQUEST_PRIVATE_SYNC);
     setStatus(`room ${r.roomId} · invite: ${location.href}`);

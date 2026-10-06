@@ -104,6 +104,18 @@ describe("dispatch", () => {
   });
 });
 
+describe("effect templating", () => {
+  it("fills $event.<key> from the triggering event payload", () => {
+    const d: CaseDef = {
+      id: "tpl",
+      initialStage: "s",
+      rules: [{ id: "r", on: "crime", once: false, do: [{ effect: { type: "police.notice", payload: { who: "$event.actor", fixed: 3, missing: "$event.nope" } } }] }],
+    };
+    const r = dispatch(d, createCaseState(d), { type: "crime", at: 0, payload: { actor: "char_a" } });
+    expect(r.effects).toEqual([{ type: "police.notice", payload: { who: "char_a", fixed: 3, missing: "" } }]);
+  });
+});
+
 describe("evaluate", () => {
   const s = { ...createCaseState(def), flags: { x: 1 }, counters: { n: 3 } };
   const e: CaseEvent = { type: "t", at: 0, payload: { k: "v" } };

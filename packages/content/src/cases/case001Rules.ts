@@ -5,7 +5,9 @@ import { CASE_001_SUBJECT_SIGNAL } from "./case001";
  * SERVER-ONLY. CASE_001 as data. Events come from the server:
  *   igl.designated, time, subject.noticed, subject.arrived {note}, subject.departed {note}, info.shared {itemId},
  *   evidence.found {evidenceId}, conversation.choice {conversation, option}, police.plateLookup, pi.dmvRequest,
- *   photo.taken {subjectInFrame, area}
+ *   photo.taken {subjectInFrame, area}, crime.committed {actor, kind, witnessed}, subject.leftDistrict
+ * More effects:
+ *   police.notice {characterId, reason, delaySec} -> the police contact that player
  * Effects go to the server:
  *   vanta.deliver {items}  -> VANTA sends items to the IGL
  *   subject.alert {level}  -> Subject behavior changes (acted on in M8)
@@ -41,6 +43,12 @@ export const CASE_001_RULES: CaseDef = {
       when: { counter: "timesNoticed", gte: 2 },
       do: [{ setStage: "spooked" }, { cancelTimer: "too_slow" }, { effect: { type: "subject.alert", payload: { level: "spooked" } } }],
     },
+    // A spooked Subject leaves the district. Failure is content: the case closes, the campaign remembers.
+    {
+      id: "subject_fled",
+      on: "subject.leftDistrict",
+      do: [{ setFlag: "subjectGone", value: true }, { setOutcome: "subject_fled" }],
+    },
 
     // The park meeting happens on the Subject's schedule whether or not anyone watches.
     {
@@ -50,18 +58,24 @@ export const CASE_001_RULES: CaseDef = {
       do: [{ setFlag: "parkMeetingHappened", value: true }],
     },
 
-    // Vehicle: how the team learned who owns the sedan leaves different traces.
+    // Crimes: every one is remembered; a witnessed one brings the police to that player.
+    { id: "crime_counted", on: "crime.committed", once: false, do: [{ increment: "crimes" }] },
     {
       id: "sedan_break_in",
-      on: "conversation.choice",
-      when: { any: [{ payload: "option", equals: "start.force" }, { payload: "option", equals: "window.force" }] },
-      do: [{ setFlag: "sedanBrokenInto", value: true }, { increment: "crimes" }],
+      on: "crime.committed",
+      when: { payload: "kind", equals: "vehicle_break_in" },
+      do: [{ setFlag: "sedanBrokenInto", value: true }],
     },
+    { id: "dvr_break_in", on: "crime.committed", when: { payload: "kind", equals: "dvr_access" }, do: [{ setFlag: "cafeDvrAccessed", value: true }] },
     {
-      id: "dvr_break_in",
-      on: "conversation.choice",
-      when: { all: [{ payload: "conversation", equals: "dvr_cafe" }, { any: [{ payload: "option", equals: "start.break" }, { payload: "option", equals: "start.port" }] }] },
-      do: [{ setFlag: "cafeDvrAccessed", value: true }, { increment: "crimes" }],
+      id: "crime_witnessed",
+      on: "crime.committed",
+      once: false,
+      when: { payload: "witnessed", equals: true },
+      do: [
+        { increment: "witnessedCrimes" },
+        { effect: { type: "police.notice", payload: { characterId: "$event.actor", reason: "$event.kind", delaySec: 90 } } },
+      ],
     },
     {
       id: "cctv_by_request",
@@ -88,7 +102,9 @@ export const CASE_001_RULES: CaseDef = {
         { setFlag: "subjectRelocated", value: true },
         { setStage: "relocated" },
         { effect: { type: "vanta.deliver", payload: { items: ["case001.subject.locationUpdate"] } } },
+        { startTimer: "gone_cold", afterSec: 600 },
       ],
     },
+    { id: "case_cold", on: "timer:gone_cold", when: { stage: "relocated" }, do: [{ setOutcome: "case_cold" }] },
   ],
 };

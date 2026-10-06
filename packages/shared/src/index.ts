@@ -13,3 +13,4 @@ export * from "./evidence";
 export * from "./dialogue";
 export * from "./abilities";
 export * from "./camera";
+export * from "./phone";

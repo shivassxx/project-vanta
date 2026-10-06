@@ -95,3 +95,13 @@
 - CASE_001 rules: `cafeDvrAccessed` + crimes, `baristaShowedCctv`, `parkMeetingPhotographed`.
 - Tests (110 passing): camera framing/occlusion/detail/caption (6), integration: photo only to the photographer with cooldown, CCTV by asking (security background), DVR forced (doctor; IT option hidden). Verified in Chromium: photo with thumbnail and server description.
 - Next: M8 consequences.
+
+## 2026-10-06 — M8 slice 1: consequences
+- Case engine: effect payload strings `$event.<key>` are filled from the triggering event (e.g. who committed a crime).
+- Crimes are data (`crime` on a conversation option). The server checks whether any person can see the spot (range 9 m, walls block) and feeds `crime.committed {actor, kind, witnessed}`. CASE_001: every crime counted; a witnessed one -> `police.notice` -> 90 case seconds later Det. Okafor (Calder PD) leaves a message on that player's phone only. The message never confirms what the police know.
+- Subject escape: `subject.alert spooked` makes the Subject hurry to the nearest exit and leave the district; `subject.leftDistrict` closes CASE_001 as `subject_fled`. Too slow after the relocation (+10 min) closes it as `case_cold`. On an outcome the IGL alone gets VANTA's "SIGNAL CLOSED."
+- Persistent world state (`WorldRepository`, versioned, in-memory until M9): case state, items VANTA delivered, people gone/dead, police attention, phone inboxes. A new room in the same campaign resumes the case and does not respawn a Subject who left.
+- Fix: the Subject's "noticed" event was emitted before its evade move, so a case reaction (leave) got overwritten; now emitted last.
+- Client: private PHONE panel, VANTA notice banner for the IGL.
+- Tests (123 passing): templating, crime/witness/outcome rules, world repository (version check, isolation), Subject leaving + not respawning, witnesses with line of sight, integration: police contact only the seen player, unseen crime stays quiet, spooked Subject leaves -> outcome -> IGL-only notice -> next room remembers.
+- Remaining M8: NPC death, intervention outcomes (warn / report the Subject).

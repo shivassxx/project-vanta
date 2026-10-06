@@ -1,4 +1,4 @@
-import type { AbilityView, Board, CharacterId, DialogueView, FoundEvidence, KnownInfo, PrivateProfile } from "@vanta/shared";
+import type { PhoneMessage, AbilityView, Board, CharacterId, DialogueView, FoundEvidence, KnownInfo, PrivateProfile } from "@vanta/shared";
 
 export interface Teammate {
   characterId: CharacterId;
@@ -18,6 +18,8 @@ export interface SessionView {
   abilities: AbilityView[];
   /** Local-only thumbnails of photos this player took (the server keeps the description). */
   photoThumbs: Record<string, string>;
+  phone: PhoneMessage[];
+  vantaNotice?: string;
 }
 
 type Listener = () => void;
@@ -32,6 +34,7 @@ export class SessionStore {
     boardOpen: false,
     abilities: [],
     photoThumbs: {},
+    phone: [],
   };
   private readonly listeners = new Set<Listener>();
 

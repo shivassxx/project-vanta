@@ -74,7 +74,17 @@ function apply(a: Action, state: CaseState, ev: CaseEvent, queue: CaseEvent[], e
   else if ("setOutcome" in a) {
     state.outcome = a.setOutcome;
     effects.push({ type: "case.outcome", payload: { outcome: a.setOutcome } });
-  } else if ("effect" in a) effects.push(a.effect);
+  } else if ("effect" in a) effects.push(resolveEffect(a.effect, ev));
+}
+
+/** Effect payload strings of the form "$event.<key>" are filled from the triggering event. */
+function resolveEffect(effect: Effect, ev: CaseEvent): Effect {
+  if (!effect.payload) return effect;
+  const payload: NonNullable<Effect["payload"]> = {};
+  for (const [k, v] of Object.entries(effect.payload)) {
+    payload[k] = typeof v === "string" && v.startsWith("$event.") ? (ev.payload?.[v.slice(7)] ?? "") : v;
+  }
+  return { ...effect, payload };
 }
 
 /** Earliest pending timer, so the host knows when to send the next time event. */

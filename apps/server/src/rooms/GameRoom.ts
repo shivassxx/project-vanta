@@ -14,6 +14,9 @@ import {
   MSG_ABILITIES,
   MSG_USE_ABILITY,
   MSG_TAKE_PHOTO,
+  MSG_PHONE,
+  MSG_VANTA_NOTICE,
+  type PhoneMessage,
   PHOTO_COOLDOWN_MS,
   PHOTO_MAX_PER_CHARACTER,
   type EvidenceItem,
@@ -64,9 +67,13 @@ import { NpcWorld, type SubjectEvent } from "../systems/subject/npcWorld";
 import type { Observer } from "../systems/subject/awareness";
 import { KnowledgeStore, checkShare } from "../systems/knowledge";
 import type { CharacterRecord } from "../persistence/CharacterRepository";
+import type { WorldRepository, WorldState } from "../persistence/WorldRepository";
 
 export interface GameRoomOptions {
   characters: CharacterService;
+  /** Campaign-wide memory that outlives rooms. */
+  world: WorldRepository;
+  campaignId: string;
   knowledge: KnowledgeStore;
   evidence: EvidenceStore;
   /** Evidence placed in the world (tests may override). */
@@ -81,6 +88,13 @@ export interface GameRoomOptions {
   /** Receives Subject events (future case engine hook). */
   onSubjectEvent?: (e: SubjectEvent) => void;
 }
+
+/** What the police say when they reach a player. Never confirms what they know. */
+const POLICE_MESSAGES: Record<string, string> = {
+  vehicle_break_in: "This is Detective Okafor, Calder PD. Someone matching your description was seen at a grey sedan by the office lot this morning. Call me back.",
+  dvr_access: "Detective Okafor, Calder PD. The café on Harlow reported a break-in at their back door. A witness gave us a description. We should talk.",
+  default: "Detective Okafor, Calder PD. I'd like a word. Call me back.",
+};
 
 const finite = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n);
 
@@ -118,21 +132,32 @@ export class GameRoom extends Room<GameState> {
   private readonly deliveredToIgl: string[] = [];
   private npcWorld!: NpcWorld;
   private npcTimeScale = 1;
+  private worldRepo!: WorldRepository;
+  private world!: WorldState;
 
   override onCreate(options: GameRoomOptions): void {
+    this.worldRepo = options.world;
+    this.world = options.world.load(options.campaignId);
     this.characterService = options.characters;
     this.knowledge = options.knowledge;
     this.igl = new IglSystem(options.rng ?? Math.random, MIN_PLAYERS);
     this.caseTimeScale = options.caseTimeScale ?? 1;
-    this.caseRunner = new CaseRunner(CASE_001_RULES, (e) => this.applyEffect(e));
+    const caseId = CASE_001_RULES.id;
+    this.deliveredToIgl.push(...(this.world.vantaDelivered[caseId] ?? []));
+    this.caseRunner = new CaseRunner(CASE_001_RULES, (e) => this.applyEffect(e), this.world.cases[caseId], (s) => {
+      this.world.cases[caseId] = s;
+      this.saveWorld();
+    });
+    if (this.world.cases[caseId]) console.log(`[Saves] ${caseId} resumed at stage ${this.caseRunner.state.stage}`);
     this.setState(new GameState());
     this.npcTimeScale = options.npcTimeScale ?? 1;
     this.npcWorld = new NpcWorld(options.people, (e) => {
       console.log(`[NPC] ${e.type}`);
       options.onSubjectEvent?.(e);
       if (e.type === "subject.noticed") this.caseRunner.feed(e.type);
+      else if (e.type === "subject.leftDistrict") this.onPersonLeft(e.key);
       else this.caseRunner.feed(e.type, { node: e.node, note: e.note ?? "" });
-    });
+    }, (key) => this.world.people[key] ?? "present");
     this.npcWorld.populate(this.state.npcs);
     this.evidence = options.evidence;
     this.evidenceWorld = new EvidenceWorld(options.evidenceSpots ?? CASE_001_EVIDENCE);
@@ -154,6 +179,7 @@ export class GameRoom extends Room<GameState> {
       client.send(MSG_KNOWLEDGE, this.knowledge.list(record.id));
       client.send(MSG_EVIDENCE, this.evidence.list(record.id));
       client.send(MSG_ABILITIES, this.abilitiesOf(record.id));
+      client.send(MSG_PHONE, this.world.phone[record.id] ?? []);
       client.send(MSG_BOARD, this.board);
     });
     this.onMessage(MSG_SHARE_ITEM, (client, raw) => this.handleShare(client, raw));
@@ -255,15 +281,52 @@ export class GameRoom extends Room<GameState> {
     this.deliverToIgl(igl, this.deliveredToIgl);
   }
 
+  private saveWorld(): void {
+    this.worldRepo.save(this.world);
+  }
+
+  private onPersonLeft(key: string): void {
+    this.world.people[key] = "gone";
+    this.saveWorld();
+    console.log(`[NPC] ${key} left the district`);
+    this.caseRunner.feed("subject.leftDistrict");
+  }
+
+  /** Phone message to one character; stored in the world so it survives reconnects and rooms. */
+  private sendPhone(characterId: CharacterId, from: string, text: string): void {
+    const inbox = (this.world.phone[characterId] ??= []);
+    const msg: PhoneMessage = { id: `msg${inbox.length + 1}`, from, text, at: this.clockLabel() };
+    inbox.push(msg);
+    this.saveWorld();
+    this.clientFor(characterId)?.send(MSG_PHONE, inbox);
+  }
+
   private applyEffect(e: Effect): void {
     if (e.type === "vanta.deliver") {
       const items = (e.payload?.items as string[] | undefined) ?? [];
       this.deliveredToIgl.push(...items.filter((id) => !this.deliveredToIgl.includes(id)));
+      this.world.vantaDelivered[CASE_001_RULES.id] = [...this.deliveredToIgl];
+      this.saveWorld();
       if (this.igl.igl) this.deliverToIgl(this.igl.igl, items);
     } else if (e.type === "subject.alert") {
-      console.log(`[NPC] subject alert: ${String(e.payload?.level)} (behavior change arrives in M8)`);
+      console.log(`[NPC] subject alert: ${String(e.payload?.level)}`);
+      if (e.payload?.level === "spooked") this.npcWorld.subjectLeave();
+    } else if (e.type === "police.notice") {
+      const characterId = String(e.payload?.characterId ?? "");
+      const reason = String(e.payload?.reason ?? "");
+      if (!characterId) return;
+      (this.world.policeAttention[characterId] ??= []).push(reason);
+      this.saveWorld();
+      console.log(`[Cases] police interested in ${characterId} (${reason})`);
+      const delay = Number(e.payload?.delaySec ?? 0);
+      this.clock.setTimeout(
+        () => this.sendPhone(characterId, "Calder PD, Det. Okafor", POLICE_MESSAGES[reason] ?? POLICE_MESSAGES.default ?? ""),
+        (delay * 1000) / this.caseTimeScale,
+      );
     } else if (e.type === "case.outcome") {
       console.log(`[Cases] outcome ${String(e.payload?.outcome)}`);
+      // VANTA's last word goes to the IGL only, and explains nothing.
+      if (this.igl.igl) this.clientFor(this.igl.igl)?.send(MSG_VANTA_NOTICE, { text: "SIGNAL CLOSED." });
     } else {
       console.log(`[Cases] unhandled effect ${e.type}`);
     }
@@ -348,6 +411,12 @@ export class GameRoom extends Room<GameState> {
     const r = choose(def, talk.node, (raw as { optionId?: unknown } | null)?.optionId, ctx);
     if (!r.ok) return;
     this.caseRunner.feed("conversation.choice", { conversation: def.id, option: `${talk.node}.${r.option.id}` });
+    if (r.option.crime) {
+      const occluders = GREYBOX_WALLS.filter((w) => w.kind === "wall");
+      const witnessed = this.npcWorld.witnessesNear(reach.from, 9, occluders);
+      console.log(`[Cases] crime ${r.option.crime} by ${characterId}${witnessed ? " (seen)" : ""}`);
+      this.caseRunner.feed("crime.committed", { actor: characterId, kind: r.option.crime, witnessed });
+    }
     const testimony = r.option.gives ? CASE_001_EVIDENCE_ITEMS.get(r.option.gives) : undefined;
     if (testimony) this.grantEvidence(characterId, testimony);
     const view = r.next ? nodeView(def, r.next, ctx) : undefined;

@@ -18,6 +18,8 @@ export interface DialogueOption {
   next?: string;
   /** Testimony evidence granted to the talker. */
   gives?: string;
+  /** Choosing this commits a crime of this kind; nearby people may see it. */
+  crime?: string;
 }
 
 export interface DialogueNode {

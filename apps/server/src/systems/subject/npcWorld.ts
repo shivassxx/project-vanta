@@ -1,16 +1,23 @@
 import { randomBytes } from "node:crypto";
 import { CASE_001_CIVILIANS, CASE_001_SUBJECT, CASE_001_WITNESSES, type PersonDef } from "@vanta/content/server";
-import { NpcState, describeLook, type NpcLook, type Vec2 } from "@vanta/shared";
+import { NpcState, describeLook, type Box2, type NpcLook, type Vec2 } from "@vanta/shared";
+import type { PersonStatus } from "../../persistence/WorldRepository";
+import { segmentHitsBox } from "../camera";
 import { Awareness, type Observer } from "./awareness";
 import { Brain, type BrainEvent } from "./brain";
 
 export type SubjectEvent =
   | { type: "subject.noticed"; by: Vec2; at: Vec2 }
   | { type: "subject.arrived"; node: number; note?: string }
-  | { type: "subject.departed"; node: number; note?: string };
+  | { type: "subject.departed"; node: number; note?: string }
+  | { type: "subject.leftDistrict"; key: string };
+
+/** Ring nodes where a person can leave the district (office building, apartments). */
+export const EXIT_NODES = [6, 0];
 
 interface Person {
   id: string;
+  key: string;
   isSubject: boolean;
   brain: Brain;
   awareness?: Awareness;
@@ -30,9 +37,13 @@ export class NpcWorld {
   constructor(
     defs: readonly PersonDef[] = [CASE_001_SUBJECT, ...CASE_001_CIVILIANS, ...CASE_001_WITNESSES],
     private readonly onEvent: (e: SubjectEvent) => void = () => undefined,
+    /** Campaign memory: people who are gone or dead are not spawned again. */
+    statusOf: (key: string) => PersonStatus = () => "present",
   ) {
     for (const def of defs) {
+      if (statusOf(def.key) !== "present") continue;
       this.people.push({
+        key: def.key,
         id: opaqueId(),
         isSubject: def.key === CASE_001_SUBJECT.key,
         brain: new Brain(def.startNode, def.plan, def.walkSpeed, def.standAt),
@@ -61,11 +72,15 @@ export class NpcWorld {
   }
 
   tick(dt: number, observers: readonly Observer[], npcs: Map<string, NpcState>): void {
+    const leaving: Person[] = [];
     for (const p of this.people) {
-      p.brain.tick(dt, (e) => p.isSubject && this.emitBrain(e));
+      p.brain.tick(dt, (e) => {
+        if (e.type === "left") leaving.push(p);
+        else if (p.isSubject) this.emitBrain(e);
+      });
       if (p.awareness) {
         const culprit = p.awareness.update(dt, p.brain.pos, p.brain.facing, observers);
-        if (culprit && p.brain.mode !== "evading") this.notice(p, culprit.pos);
+        if (culprit && p.brain.mode === "routine") this.notice(p, culprit.pos);
       }
       const s = npcs.get(p.id);
       if (s) {
@@ -74,6 +89,23 @@ export class NpcWorld {
         s.facing = p.brain.facing;
       }
     }
+    for (const p of leaving) {
+      this.people.splice(this.people.indexOf(p), 1);
+      npcs.delete(p.id);
+      this.onEvent({ type: "subject.leftDistrict", key: p.key });
+    }
+  }
+
+  /** The Subject heads for the nearest exit and leaves the district. */
+  subjectLeave(): void {
+    this.people.find((p) => p.isSubject)?.brain.leave(EXIT_NODES);
+  }
+
+  /** Whether anyone (other than `except`) can see this spot: within range, no wall between. */
+  witnessesNear(pos: Vec2, range: number, occluders: readonly Box2[], except?: string): boolean {
+    return this.people.some(
+      (p) => p.id !== except && Math.hypot(p.brain.pos.x - pos.x, p.brain.pos.z - pos.z) <= range && !occluders.some((b) => segmentHitsBox(p.brain.pos, pos, b)),
+    );
   }
 
   /** Server-only lookups for conversations; never sent to clients. */
@@ -90,14 +122,15 @@ export class NpcWorld {
   /** Someone walked up and spoke to this person. For the Subject that is unmistakable surveillance. */
   confront(id: string, from: Vec2): void {
     const p = this.people.find((x) => x.id === id);
-    if (p?.isSubject && p.brain.mode !== "evading") this.notice(p, from);
+    if (p?.isSubject && p.brain.mode === "routine") this.notice(p, from);
   }
 
   private notice(p: Person, from: Vec2): void {
-    this.onEvent({ type: "subject.noticed", by: from, at: { ...p.brain.pos } });
     p.brain.faceToward(from);
     p.brain.evade(from, (e) => this.emitBrain(e));
     p.awareness?.reset();
+    // Emitted last: the case may react (e.g. order the Subject to leave) and must not be overridden.
+    this.onEvent({ type: "subject.noticed", by: from, at: { ...p.brain.pos } });
   }
 
   /** For the (future) case engine and debug tools; never sent to clients. */

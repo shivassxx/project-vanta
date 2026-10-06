@@ -14,6 +14,8 @@ import {
   MSG_DIALOGUE,
   MSG_USE_ABILITY,
   MSG_TAKE_PHOTO,
+  MSG_PHONE,
+  type PhoneMessage,
   type AbilityView,
   MSG_TALK,
   MSG_TALK_CHOICE,
@@ -51,6 +53,7 @@ export class Bot {
   board: Board = { entries: [], links: [] };
   dialogue?: DialogueView;
   abilities: AbilityView[] = [];
+  phone: PhoneMessage[] = [];
 
   constructor(private readonly opts: BotOptions) {
     this.client = new Client(opts.endpoint);
@@ -76,6 +79,7 @@ export class Bot {
       if (type === MSG_BOARD) this.board = message as Board;
       if (type === MSG_DIALOGUE) this.dialogue = message as DialogueView;
       if (type === MSG_ABILITIES) this.abilities = message as AbilityView[];
+      if (type === MSG_PHONE) this.phone = message as PhoneMessage[];
     });
     room.send(MSG_REQUEST_PRIVATE_SYNC);
   }

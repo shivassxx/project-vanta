@@ -62,14 +62,38 @@ describe("CASE_001 rules", () => {
 });
 
 describe("CASE_001 vehicle traces", () => {
-  it("remembers forcing the sedan's door as a crime", () => {
-    const { state } = play([...start, { type: "conversation.choice", at: 50, payload: { conversation: "vehicle_sedan", option: "window.force" } }]);
+  it("remembers forcing the sedan's door as a crime, unseen", () => {
+    const { state, effects } = play([...start, { type: "crime.committed", at: 50, payload: { actor: "char_a", kind: "vehicle_break_in", witnessed: false } }]);
     expect(state.flags.sedanBrokenInto).toBe(true);
     expect(state.counters.crimes).toBe(1);
+    expect(effects.some((e) => e.type === "police.notice")).toBe(false);
+  });
+
+  it("sends the police after whoever was seen committing a crime", () => {
+    const { state, effects } = play([...start, { type: "crime.committed", at: 50, payload: { actor: "char_b", kind: "dvr_access", witnessed: true } }]);
+    expect(state.flags.cafeDvrAccessed).toBe(true);
+    expect(effects.at(-1)).toEqual({ type: "police.notice", payload: { characterId: "char_b", reason: "dvr_access", delaySec: 90 } });
   });
 
   it("records a police plate lookup in the access log", () => {
     const { state } = play([...start, { type: "police.plateLookup", at: 50 }]);
     expect(state.flags.policeLookupLogged).toBe(true);
+  });
+});
+
+describe("CASE_001 outcomes", () => {
+  it("closes as subject_fled when the spooked Subject leaves", () => {
+    const { state } = play([
+      ...start,
+      { type: "subject.noticed", at: 30 },
+      { type: "subject.noticed", at: 40 },
+      { type: "subject.leftDistrict", at: 80 },
+    ]);
+    expect(state.outcome).toBe("subject_fled");
+  });
+
+  it("goes cold if the team stays too slow after the relocation", () => {
+    expect(play([...start, { type: "time", at: 950 }]).state.outcome).toBeUndefined();
+    expect(play([...start, { type: "time", at: 950 }, { type: "time", at: 1600 }]).state.outcome).toBe("case_cold");
   });
 });

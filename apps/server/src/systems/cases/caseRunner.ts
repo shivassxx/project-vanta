@@ -11,8 +11,12 @@ export class CaseRunner {
   constructor(
     private readonly def: CaseDef,
     private readonly onEffect: (e: Effect) => void,
+    /** Restored state from the world (a case continues across rooms). */
+    initial?: CaseState,
+    private readonly onChange: (s: CaseState) => void = () => undefined,
   ) {
-    this.state = createCaseState(def);
+    this.state = initial ?? createCaseState(def);
+    this.time = this.state.now;
   }
 
   get now(): number {
@@ -33,6 +37,7 @@ export class CaseRunner {
   private dispatch(event: CaseEvent): void {
     const r = dispatch(this.def, this.state, event);
     this.state = r.state;
+    if (r.fired.length > 0) this.onChange(r.state);
     if (r.fired.length > 0) console.log(`[Cases] ${this.def.id} ${event.type} -> ${r.fired.join(", ")} (stage ${r.state.stage})`);
     for (const e of r.effects) this.onEffect(e);
   }

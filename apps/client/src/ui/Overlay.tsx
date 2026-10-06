@@ -31,6 +31,19 @@ export function Overlay({ store, onShare, onBoard, onChoose, onLeaveTalk, onAbil
           <div className="vt-box vt-muted">{isIgl ? "DESIGNATION: IGL" : `IGL: ${shortId(view.iglCharacterId)}`}</div>
         )}
         {isIgl && fromVanta.length > 0 && <IglPanel items={fromVanta.map((k) => k.item)} teammates={others} onShare={onShare} />}
+        {view.phone.length > 0 && (
+          <div className="vt-box">
+            <div className="vt-title">PHONE</div>
+            {view.phone.map((m) => (
+              <div key={m.id} className="vt-row">
+                <div className="vt-label">
+                  {m.at} · {m.from}
+                </div>
+                <div>{m.text}</div>
+              </div>
+            ))}
+          </div>
+        )}
         {view.abilities.length > 0 && (
           <div className="vt-box">
             <div className="vt-title">ACTIONS · private</div>
@@ -63,6 +76,7 @@ export function Overlay({ store, onShare, onBoard, onChoose, onLeaveTalk, onAbil
           </div>
         )}
       </div>
+      {view.vantaNotice && <div className="vt-vanta">{view.vantaNotice}</div>}
       {view.dialogue && !view.dialogue.ended && (
         <div className="vt-dialogue">
           <div className="vt-muted vt-small">{view.dialogue.observed}</div>
