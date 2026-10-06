@@ -3,9 +3,9 @@ import { Awareness } from "./awareness";
 
 // Subject at origin facing -Z (yaw 0).
 const self = { x: 0, z: 0 };
-const run = (a: Awareness, seconds: number, observer: { x: number; z: number }, sprinting = false) => {
+const run = (a: Awareness, seconds: number, observer: { x: number; z: number }, sprinting = false, moving = false, selfMoving = false) => {
   let culprit;
-  for (let t = 0; t < seconds * 10; t++) culprit = a.update(0.1, self, 0, [{ pos: observer, sprinting }]) ?? culprit;
+  for (let t = 0; t < seconds * 10; t++) culprit = a.update(0.1, self, 0, [{ pos: observer, sprinting, moving: moving || sprinting }], selfMoving) ?? culprit;
   return culprit;
 };
 
@@ -28,9 +28,18 @@ describe("Awareness", () => {
     expect(run(new Awareness(), 10, { x: 0, z: 6 })).toBeUndefined();
   });
 
-  it("notices a tail that stays within range for a long time", () => {
-    expect(run(new Awareness(), 20, { x: 0, z: 10 })).toBeUndefined();
-    expect(run(new Awareness(), 40, { x: 0, z: 10 })).toBeDefined();
+  it("notices a tail that keeps moving with her for a long time", () => {
+    expect(run(new Awareness(), 20, { x: 0, z: 10 }, false, true, true)).toBeUndefined();
+    expect(run(new Awareness(), 40, { x: 0, z: 10 }, false, true, true)).toBeDefined();
+  });
+
+  it("ignores people standing still while she walks past, even close", () => {
+    expect(run(new Awareness(), 30, { x: 0, z: -1.5 }, false, false, true)).toBeUndefined();
+    expect(run(new Awareness(), 60, { x: 0, z: 10 }, false, false, true)).toBeUndefined();
+  });
+
+  it("does not count a standing person far behind as a tail while she waits", () => {
+    expect(run(new Awareness(), 60, { x: 0, z: 10 }, false, true, false)).toBeUndefined();
   });
 
   it("is faster when the observer sprints", () => {

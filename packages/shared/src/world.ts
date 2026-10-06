@@ -20,11 +20,23 @@ export const GREYBOX_WALLS: readonly WallDef[] = [
   box(-6, 6, 2, 1, 1, "prop"),
 ];
 
+/**
+ * Where players appear: the middle of the block, away from the ring road the Subject walks,
+ * so nobody starts out standing in her path.
+ */
+/** Footprint of a parked car (1.8 m wide, 4.2 m long) for collision. */
+export function vehicleBox(x: number, z: number, heading: number): Box2 {
+  const sideways = Math.abs(Math.sin(heading)) > 0.5;
+  const halfW = sideways ? 2.1 : 0.9;
+  const halfL = sideways ? 0.9 : 2.1;
+  return { minX: x - halfW, maxX: x + halfW, minZ: z - halfL, maxZ: z + halfL };
+}
+
 export const SPAWN_POINTS: readonly Vec2[] = [
-  { x: 0, z: 8 },
-  { x: 2, z: 8 },
-  { x: -2, z: 8 },
-  { x: 4, z: 8 },
-  { x: -4, z: 8 },
-  { x: 6, z: 8 },
+  { x: 0, z: 3 },
+  { x: 2, z: 3 },
+  { x: -2, z: 1.5 },
+  { x: 4, z: 3 },
+  { x: 0, z: 1 },
+  { x: 2, z: 1 },
 ];

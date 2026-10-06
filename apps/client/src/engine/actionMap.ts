@@ -9,6 +9,7 @@ export type Action =
   | "investigate"
   | "toggleBoard"
   | "photo"
+  | "debug"
   | "choice1"
   | "choice2"
   | "choice3"
@@ -28,6 +29,7 @@ export const DEFAULT_BINDINGS: Bindings = {
   investigate: ["KeyF"],
   toggleBoard: ["KeyB"],
   photo: ["KeyP"],
+  debug: ["F9"],
   choice1: ["Digit1"],
   choice2: ["Digit2"],
   choice3: ["Digit3"],

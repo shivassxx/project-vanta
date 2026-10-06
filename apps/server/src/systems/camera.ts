@@ -6,6 +6,7 @@ import {
   PHOTO_HALF_FOV,
   PHOTO_RANGE,
   describeLook,
+  segmentBoxEntry,
   type Box2,
   type NpcLook,
   type Vec2,
@@ -40,27 +41,9 @@ export interface PhotoResult {
   subjectInFrame: boolean;
 }
 
-/** Segment-vs-box test (slab method) on the ground plane. */
+/** Segment-vs-box test on the ground plane. */
 export function segmentHitsBox(a: Vec2, b: Vec2, box: Box2): boolean {
-  let t0 = 0;
-  let t1 = 1;
-  const d = { x: b.x - a.x, z: b.z - a.z };
-  for (const [p, dp, min, max] of [
-    [a.x, d.x, box.minX, box.maxX],
-    [a.z, d.z, box.minZ, box.maxZ],
-  ] as const) {
-    if (Math.abs(dp) < 1e-9) {
-      if (p < min || p > max) return false;
-      continue;
-    }
-    let ta = (min - p) / dp;
-    let tb = (max - p) / dp;
-    if (ta > tb) [ta, tb] = [tb, ta];
-    t0 = Math.max(t0, ta);
-    t1 = Math.min(t1, tb);
-    if (t0 > t1) return false;
-  }
-  return true;
+  return segmentBoxEntry(a, b, box) !== undefined;
 }
 
 function inFrame(from: Vec2, yaw: number, target: Vec2, occluders: readonly Box2[]): number | undefined {

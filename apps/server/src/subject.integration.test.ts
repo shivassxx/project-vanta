@@ -2,6 +2,7 @@ import type { Server } from "@colyseus/core";
 import { Bot } from "@vanta/bots";
 import { CASE_001_CIVILIANS, CASE_001_SUBJECT, CASE_001_WITNESSES } from "@vanta/content/server";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { TEST_SPAWNS } from "./testSupport";
 import { startGameServer } from "./createServer";
 import { RING_NODES } from "./systems/subject/ring";
 
@@ -11,7 +12,7 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 let server: Server;
 beforeAll(async () => {
-  server = await startGameServer(PORT, { npcTimeScale: 20 });
+  server = await startGameServer(PORT, { spawnPoints: TEST_SPAWNS, npcTimeScale: 20 });
 });
 afterAll(async () => {
   await server.gracefullyShutdown(false);

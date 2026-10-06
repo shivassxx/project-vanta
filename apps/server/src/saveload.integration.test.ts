@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { Bot } from "@vanta/bots";
 import { CASE_001_EVIDENCE } from "@vanta/content/server";
 import { describe, expect, it } from "vitest";
+import { TEST_SPAWNS } from "./testSupport";
 import { sqliteOptions, startGameServer } from "./createServer";
 import { SqliteStore } from "./persistence/sqlite";
 
@@ -18,7 +19,7 @@ describe("save/load across a server restart", () => {
 
     // --- first run ---
     let store = new SqliteStore(path);
-    let server = await startGameServer(2616, { ...sqliteOptions(store), caseTimeScale: 100, rng: () => 0, people: [], evidenceSpots: spots });
+    let server = await startGameServer(2616, { spawnPoints: TEST_SPAWNS, ...sqliteOptions(store), caseTimeScale: 100, rng: () => 0, people: [], evidenceSpots: spots });
     const a = new Bot({ endpoint: "ws://localhost:2616" });
     const room = await a.join();
     const b = new Bot({ endpoint: "ws://localhost:2616", roomId: room.roomId });
@@ -38,7 +39,7 @@ describe("save/load across a server restart", () => {
 
     // --- second run: a fresh process would do exactly this ---
     store = new SqliteStore(path);
-    server = await startGameServer(2617, { ...sqliteOptions(store), caseTimeScale: 100, rng: () => 0, people: [], evidenceSpots: spots });
+    server = await startGameServer(2617, { spawnPoints: TEST_SPAWNS, ...sqliteOptions(store), caseTimeScale: 100, rng: () => 0, people: [], evidenceSpots: spots });
     const a2 = new Bot({ endpoint: "ws://localhost:2617", playerToken: a.playerToken });
     const room2 = await a2.join();
     const b2 = new Bot({ endpoint: "ws://localhost:2617", roomId: room2.roomId, playerToken: b.playerToken });

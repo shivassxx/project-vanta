@@ -84,7 +84,7 @@ export class NpcWorld {
         else if (p.isSubject) this.emitBrain(e);
       });
       if (p.awareness) {
-        const culprit = p.awareness.update(dt, p.brain.pos, p.brain.facing, observers);
+        const culprit = p.awareness.update(dt, p.brain.pos, p.brain.facing, observers, p.brain.moving);
         if (culprit && p.brain.mode === "routine") this.notice(p, culprit.pos);
       }
       const s = npcs.get(p.id);

@@ -13,7 +13,7 @@ function setup() {
 }
 
 const run = (w: ReturnType<typeof setup>, seconds: number, observers: { x: number; z: number }[] = [], sprint = false) => {
-  for (let t = 0; t < seconds * 10; t++) w.world.tick(0.1, observers.map((pos) => ({ pos, sprinting: sprint })), w.npcs);
+  for (let t = 0; t < seconds * 10; t++) w.world.tick(0.1, observers.map((pos) => ({ pos, sprinting: sprint, moving: true })), w.npcs);
 };
 
 describe("NpcWorld", () => {

@@ -2,6 +2,7 @@ import type { Server } from "@colyseus/core";
 import { Bot } from "@vanta/bots";
 import { PROFESSIONS } from "@vanta/content";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { TEST_SPAWNS } from "./testSupport";
 import { startGameServer } from "./createServer";
 import { InMemoryCharacterRepository } from "./persistence/CharacterRepository";
 import { CharacterService } from "./systems/characters";
@@ -18,7 +19,7 @@ const rng = () => ((order[n++ % order.length] ?? 0) + 0.5) / PROFESSIONS.length;
 
 let server: Server;
 beforeAll(async () => {
-  server = await startGameServer(PORT, {
+  server = await startGameServer(PORT, { spawnPoints: TEST_SPAWNS,
     characters: new CharacterService(new InMemoryCharacterRepository(), "campaign_test", rng),
     caseTimeScale: 100,
     people: [],

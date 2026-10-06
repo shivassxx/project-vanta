@@ -14,6 +14,9 @@ import {
   MSG_ABILITIES,
   MSG_USE_ABILITY,
   MSG_TAKE_PHOTO,
+  MSG_DEBUG,
+  MSG_DEBUG_STATE,
+  type DebugCaseState,
   MSG_PHONE,
   MSG_VANTA_NOTICE,
   type PhoneMessage,
@@ -41,6 +44,9 @@ import {
   type CharacterId,
   type InputMessage,
   type JoinOptions,
+  type Vec2,
+  type Box2,
+  vehicleBox,
 } from "@vanta/shared";
 import {
   CASE_001_ABILITIES,
@@ -81,6 +87,10 @@ export interface GameRoomOptions {
   rng?: Rng;
   /** Multiplies case time (tests only). */
   caseTimeScale?: number;
+  /** Dev-only debug commands (time skip, case state). Defaults to on unless NODE_ENV=production. */
+  debug?: boolean;
+  /** Player spawn points (tests may override). */
+  spawnPoints?: readonly Vec2[];
   /** People in the world (tests may override). */
   people?: readonly PersonDef[];
   /** Multiplies NPC simulation speed (tests only). */
@@ -130,11 +140,15 @@ export class GameRoom extends Room<GameState> {
   private readonly deliveredToIgl: string[] = [];
   private npcWorld!: NpcWorld;
   private npcTimeScale = 1;
+  private spawnPoints: readonly Vec2[] = SPAWN_POINTS;
+  /** Walls plus parked vehicles: everything players collide with. */
+  private colliders: readonly Box2[] = GREYBOX_WALLS;
   private worldRepo!: WorldRepository;
   private world!: WorldState;
 
   override onCreate(options: GameRoomOptions): void {
     this.worldRepo = options.world;
+    this.spawnPoints = options.spawnPoints ?? SPAWN_POINTS;
     this.world = options.world.load(options.campaignId);
     this.characterService = options.characters;
     this.knowledge = options.knowledge;
@@ -165,6 +179,11 @@ export class GameRoom extends Room<GameState> {
     this.evidenceWorld.populate(this.state.spots);
     this.vehicleWorld = new VehicleWorld(CASE_001_VEHICLES);
     this.vehicleWorld.populate(this.state.vehicles);
+    this.colliders = [...GREYBOX_WALLS, ...[...this.state.vehicles.values()].map((v) => vehicleBox(v.x, v.z, v.heading))];
+    const debug = options.debug ?? process.env.NODE_ENV !== "production";
+    // Always registered so an unexpected debug request is ignored instead of dropping the client.
+    this.onMessage(MSG_DEBUG, (client, raw) => debug && this.handleDebug(client, raw));
+    if (debug) console.log("[Cases] debug commands enabled");
     this.onMessage(MSG_USE_ABILITY, (client, raw) => this.handleAbility(client, raw));
     this.onMessage(MSG_TAKE_PHOTO, (client, raw) => this.handlePhoto(client, raw));
     this.onMessage(MSG_INTERACT, (client, raw) => this.handleInteract(client, raw));
@@ -212,7 +231,7 @@ export class GameRoom extends Room<GameState> {
     const p = new PlayerState();
     p.id = client.sessionId;
     p.characterId = record.id;
-    const spawn = SPAWN_POINTS[this.state.players.size % SPAWN_POINTS.length];
+    const spawn = this.spawnPoints[this.state.players.size % this.spawnPoints.length];
     p.x = spawn?.x ?? 0;
     p.z = spawn?.z ?? 0;
     this.state.players.set(client.sessionId, p);
@@ -462,6 +481,18 @@ export class GameRoom extends Room<GameState> {
     );
   }
 
+  /** Dev-only: inspect the case and skip time. Answers only the requester. */
+  private handleDebug(client: Client, raw: unknown): void {
+    const cmd = raw as { cmd?: unknown; sec?: unknown } | null;
+    if (cmd?.cmd === "advance" && typeof cmd.sec === "number" && cmd.sec > 0 && cmd.sec <= 3600) {
+      console.log(`[Cases] debug: advance ${cmd.sec}s`);
+      this.caseRunner.advance(cmd.sec);
+    } else if (cmd?.cmd !== "state") return;
+    const s = this.caseRunner.state;
+    const view: DebugCaseState = { stage: s.stage, outcome: s.outcome, now: Math.round(this.caseRunner.now), flags: s.flags, counters: s.counters, timers: s.timers };
+    client.send(MSG_DEBUG_STATE, view);
+  }
+
   /** Case clock shown on records: the case starts at 08:00. */
   private clockLabel(): string {
     const total = 8 * 60 + Math.floor(this.caseRunner.now / 60);
@@ -556,7 +587,7 @@ export class GameRoom extends Room<GameState> {
   private tick(dt: number): void {
     const observers: Observer[] = [];
     this.state.players.forEach((p, id) => {
-      if (p.connected) observers.push({ pos: { x: p.x, z: p.z }, sprinting: this.inputs.get(id)?.sprint === true && this.moving(id) });
+      if (p.connected) observers.push({ pos: { x: p.x, z: p.z }, sprinting: this.inputs.get(id)?.sprint === true && this.moving(id), moving: this.moving(id) });
     });
     this.npcWorld.tick(dt * this.npcTimeScale, observers, this.state.npcs);
     this.caseRunner.advance(dt * this.caseTimeScale);
@@ -565,7 +596,7 @@ export class GameRoom extends Room<GameState> {
       if (!input) return;
       const dir = worldDirection({ x: input.x, y: input.y }, input.yaw);
       const speed = input.sprint ? SPRINT_SPEED : WALK_SPEED;
-      const next = moveWithCollision({ x: p.x, z: p.z }, { x: dir.x * speed * dt, z: dir.z * speed * dt }, GREYBOX_WALLS);
+      const next = moveWithCollision({ x: p.x, z: p.z }, { x: dir.x * speed * dt, z: dir.z * speed * dt }, this.colliders);
       p.x = next.x;
       p.z = next.z;
       if (dir.x !== 0 || dir.z !== 0) p.facing = Math.atan2(-dir.x, -dir.z);

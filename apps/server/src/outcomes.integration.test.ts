@@ -2,6 +2,7 @@ import type { Server } from "@colyseus/core";
 import { Bot } from "@vanta/bots";
 import { CASE_001_DVR_SPOT, CASE_001_EVIDENCE, CASE_001_SUBJECT, CASE_001_WITNESSES, type PersonDef } from "@vanta/content/server";
 import { afterAll, describe, expect, it } from "vitest";
+import { TEST_SPAWNS } from "./testSupport";
 import { startGameServer } from "./createServer";
 import { InMemoryWorldRepository } from "./persistence/WorldRepository";
 
@@ -30,7 +31,7 @@ describe("CASE_001 interventions", () => {
   it("warning her closes the case as warned; she leaves", async () => {
     const port = 2613;
     servers.push(
-      await startGameServer(port, {
+      await startGameServer(port, { spawnPoints: TEST_SPAWNS,
         people: [subjectNearby],
         evidenceSpots: [{ ...CASE_001_DVR_SPOT, position: { x: -1.5, z: 8.5 } }],
         caseTimeScale: 100,
@@ -64,7 +65,7 @@ describe("CASE_001 interventions", () => {
     const port = 2614;
     const world = new InMemoryWorldRepository();
     servers.push(
-      await startGameServer(port, {
+      await startGameServer(port, { spawnPoints: TEST_SPAWNS,
         world,
         people: [subjectNearby],
         evidenceSpots: [{ ...tornNote, position: { x: -1.5, z: 8.5 } }],
@@ -92,7 +93,7 @@ describe("NPC death", () => {
     const smoker = CASE_001_WITNESSES.find((w) => w.key === "witness_smoker");
     if (!smoker) throw new Error("no smoker");
     // 1000x case time: relocation at 0.9 s, the watcher dies 0.3 s later.
-    servers.push(await startGameServer(port, { world, people: [{ ...smoker, standAt: { x: 0, z: 6 } }], caseTimeScale: 1000, rng: () => 0 }));
+    servers.push(await startGameServer(port, { spawnPoints: TEST_SPAWNS, world, people: [{ ...smoker, standAt: { x: 0, z: 6 } }], caseTimeScale: 1000, rng: () => 0 }));
     const { igl, other, room } = await team(port);
     const bodyId = [...room.state.npcs.keys()][0] ?? "";
     for (let i = 0; i < 40 && !room.state.npcs.get(bodyId)?.down; i++) await wait(100);

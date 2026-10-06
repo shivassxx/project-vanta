@@ -1,4 +1,4 @@
-import type { PhoneMessage, AbilityView, Board, CharacterId, DialogueView, FoundEvidence, KnownInfo, PrivateProfile } from "@vanta/shared";
+import type { DebugCaseState, PhoneMessage, AbilityView, Board, CharacterId, DialogueView, FoundEvidence, KnownInfo, PrivateProfile } from "@vanta/shared";
 
 export interface Teammate {
   characterId: CharacterId;
@@ -20,6 +20,9 @@ export interface SessionView {
   photoThumbs: Record<string, string>;
   phone: PhoneMessage[];
   vantaNotice?: string;
+  /** Dev builds only. */
+  debugOpen: boolean;
+  debugState?: DebugCaseState;
 }
 
 type Listener = () => void;
@@ -35,6 +38,7 @@ export class SessionStore {
     abilities: [],
     photoThumbs: {},
     phone: [],
+    debugOpen: false,
   };
   private readonly listeners = new Set<Listener>();
 

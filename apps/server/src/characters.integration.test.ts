@@ -3,6 +3,7 @@ import { Bot } from "@vanta/bots";
 import { Client } from "colyseus.js";
 import { GAME_ROOM_NAME } from "@vanta/shared";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { TEST_SPAWNS } from "./testSupport";
 import { startGameServer } from "./createServer";
 
 const PORT = 2602;
@@ -11,7 +12,7 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 let server: Server;
 beforeAll(async () => {
-  server = await startGameServer(PORT);
+  server = await startGameServer(PORT, { spawnPoints: TEST_SPAWNS });
 });
 afterAll(async () => {
   await server.gracefullyShutdown(false);

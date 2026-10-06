@@ -2,6 +2,7 @@ import type { Server } from "@colyseus/core";
 import { Bot } from "@vanta/bots";
 import { CASE_001_DVR_SPOT, CASE_001_SUBJECT, CASE_001_WITNESSES, type PersonDef } from "@vanta/content/server";
 import { afterAll, describe, expect, it } from "vitest";
+import { TEST_SPAWNS } from "./testSupport";
 import { startGameServer } from "./createServer";
 import { InMemoryWorldRepository } from "./persistence/WorldRepository";
 
@@ -26,7 +27,7 @@ describe("police consequence", () => {
   it("contacts only the player who was seen committing a crime", async () => {
     const port = 2610;
     // The barista stands right next to the service door: she sees it happen.
-    servers.push(await startGameServer(port, { caseTimeScale: 100, people: [{ ...barista, standAt: { x: -3, z: 6 } }], evidenceSpots: [dvrNearSpawn] }));
+    servers.push(await startGameServer(port, { spawnPoints: TEST_SPAWNS, caseTimeScale: 100, people: [{ ...barista, standAt: { x: -3, z: 6 } }], evidenceSpots: [dvrNearSpawn] }));
     const thief = new Bot({ endpoint: `ws://localhost:${port}` });
     const room = await thief.join();
     const other = new Bot({ endpoint: `ws://localhost:${port}`, roomId: room.roomId });
@@ -44,7 +45,7 @@ describe("police consequence", () => {
 
   it("stays quiet when nobody saw it", async () => {
     const port = 2611;
-    servers.push(await startGameServer(port, { caseTimeScale: 100, people: [], evidenceSpots: [dvrNearSpawn] }));
+    servers.push(await startGameServer(port, { spawnPoints: TEST_SPAWNS, caseTimeScale: 100, people: [], evidenceSpots: [dvrNearSpawn] }));
     const thief = new Bot({ endpoint: `ws://localhost:${port}` });
     await thief.join();
     await wait(150);
@@ -61,7 +62,7 @@ describe("Subject escape and persistent world", () => {
     const world = new InMemoryWorldRepository();
     // The Subject waits at Harlow Street (node 1, right by the spawn) and returns there after evading.
     const subject: PersonDef = { ...CASE_001_SUBJECT, startNode: 1, plan: [{ node: 1, dwellSec: Number.POSITIVE_INFINITY, note: "waiting" }] };
-    servers.push(await startGameServer(port, { world, people: [subject], caseTimeScale: 100, npcTimeScale: 20, rng: () => 0 }));
+    servers.push(await startGameServer(port, { spawnPoints: TEST_SPAWNS, world, people: [subject], caseTimeScale: 100, npcTimeScale: 20, rng: () => 0 }));
     const endpoint = `ws://localhost:${port}`;
     const igl = new Bot({ endpoint });
     const room = await igl.join();

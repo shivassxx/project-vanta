@@ -60,3 +60,29 @@ export function worldDirection(axis: { x: number; y: number }, yaw: number): Vec
   const fz = -Math.cos(yaw);
   return { x: fx * ny + -fz * nx, z: fz * ny + fx * nx };
 }
+
+/**
+ * Where a segment a->b first enters a box on the ground plane, as t in [0, 1]
+ * (0 if a starts inside), or undefined if it misses. Slab method.
+ */
+export function segmentBoxEntry(a: Vec2, b: Vec2, box: Box2): number | undefined {
+  let t0 = 0;
+  let t1 = 1;
+  const axes: [number, number, number, number][] = [
+    [a.x, b.x - a.x, box.minX, box.maxX],
+    [a.z, b.z - a.z, box.minZ, box.maxZ],
+  ];
+  for (const [p, dp, min, max] of axes) {
+    if (Math.abs(dp) < 1e-9) {
+      if (p < min || p > max) return undefined;
+      continue;
+    }
+    let ta = (min - p) / dp;
+    let tb = (max - p) / dp;
+    if (ta > tb) [ta, tb] = [tb, ta];
+    t0 = Math.max(t0, ta);
+    t1 = Math.min(t1, tb);
+    if (t0 > t1) return undefined;
+  }
+  return t0;
+}

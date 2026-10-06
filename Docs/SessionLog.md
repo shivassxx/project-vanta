@@ -126,3 +126,14 @@
 
 ## 2026-10-06 — Fix: Windows install of better-sqlite3
 - `pnpm install` failed on Windows (`'node-gyp' is not recognized`): better-sqlite3 13 has no prebuilt binaries and always compiles. Pinned 12.11.1 (exact), which downloads a prebuilt binary (verified: "Successfully installed prebuilt binary"). Reason recorded in Architecture.md. All 142 tests pass.
+
+## 2026-10-06 — M10 slice 1: playability pass
+- Subject awareness tuned: walking past someone standing still is not surveillance (only counts if the observer moves or she is stationary); a tail needs both moving; seen range 8 -> 6 m.
+- Spawns moved to the middle of the block, off the Subject's ring road (tests keep their fixtures via `TEST_SPAWNS`).
+- Parked cars are solid (`vehicleBox` in shared collision, server + client prediction); the sedan moved off the NPC path.
+- Camera: pulled in front of walls along the head-to-camera sight line (height-aware, `segmentBoxEntry` shared with the server photo code); the character fades when the camera is pushed right behind it.
+- A lone player is told nothing will happen until someone joins (dev builds also show the bot command).
+- Dev tools: F9 panel (dev builds only, stripped from production bundles) shows hidden case state and skips 1/5 minutes; the server answers only when debug is on (default unless NODE_ENV=production) and only to the requester. Unregistered messages dropped clients, so the handler is always registered.
+- `walkthrough.integration.test.ts`: CASE_001 played end to end on the real layout by two bots (signal, share, receipt, honest witness, DVR, board, warn the Subject at the café) -> `subject_warned`, IGL-only VANTA notice, police call for the seen DVR break-in, world memory. Found that at x100 case time the run took 33 case minutes and the case went cold: the delay consequence works; the test uses x10.
+- Tests: 151 passing (x2 runs). Verified in Chromium: wall camera + fade, lone-player hint, debug panel.
+- Next: human playtest of CASE_001 with two players; tune from feedback.

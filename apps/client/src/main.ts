@@ -15,6 +15,9 @@ import {
   MSG_DIALOGUE,
   MSG_USE_ABILITY,
   MSG_TAKE_PHOTO,
+  MSG_DEBUG,
+  MSG_DEBUG_STATE,
+  type DebugCaseState,
   MSG_PHONE,
   MSG_VANTA_NOTICE,
   type PhoneMessage,
@@ -27,6 +30,7 @@ import {
   TICK_RATE,
   WALK_SPEED,
   moveWithCollision,
+  vehicleBox,
   worldDirection,
   type GameState,
   type Board,
@@ -40,6 +44,7 @@ import {
 } from "@vanta/shared";
 import type { Room } from "colyseus.js";
 import { ActionMap } from "./engine/actionMap";
+import { clearCameraFraction } from "./engine/cameraCollision";
 import { CAMERA_PRESETS, clampPitch, lerpPreset, resolveMode, type CameraPreset } from "./engine/cameraRig";
 import { buildGreybox } from "./game/greybox";
 import { createNpcMesh } from "./game/npcView";
@@ -70,7 +75,8 @@ scene.add(greybox.group);
 
 // Placeholder characters: capsules.
 const capsuleGeo = new THREE.CapsuleGeometry(0.35, 1.1, 4, 8);
-const player = new THREE.Mesh(capsuleGeo, new THREE.MeshStandardMaterial({ color: 0x6f8aa3 }));
+const playerMat = new THREE.MeshStandardMaterial({ color: 0x6f8aa3, transparent: true });
+const player = new THREE.Mesh(capsuleGeo, playerMat);
 scene.add(player);
 const remoteMat = new THREE.MeshStandardMaterial({ color: 0xa36f6f });
 const disconnectedMat = new THREE.MeshStandardMaterial({ color: 0xa36f6f, transparent: true, opacity: 0.3 });
@@ -126,11 +132,15 @@ mountOverlay(
     onChoose: (optionId) => room?.send(MSG_TALK_CHOICE, { optionId }),
     onLeaveTalk: leaveTalk,
     onAbility: (id) => room?.send(MSG_USE_ABILITY, { id }),
+    onDebugAdvance: (sec) => room?.send(MSG_DEBUG, { cmd: "advance", sec }),
   },
   session,
 );
 
 // Public room state -> overlay (IGL designation, teammate list), polled at low rate.
+// Dev builds: refresh the debug case view while the panel is open.
+if (import.meta.env.DEV) setInterval(() => session.get().debugOpen && room?.send(MSG_DEBUG, { cmd: "state" }), 1000);
+
 let lastPublic = "";
 setInterval(() => {
   if (!room?.state.players) return;
@@ -166,6 +176,7 @@ connect()
       if (phone.length > session.get().phone.length) setStatus("Your phone buzzes.");
       session.update({ phone });
     });
+    if (import.meta.env.DEV) r.onMessage(MSG_DEBUG_STATE, (debugState: DebugCaseState) => session.update({ debugState }));
     r.onMessage(MSG_VANTA_NOTICE, (n: { text: string }) => session.update({ vantaNotice: n.text }));
     r.onMessage(MSG_DIALOGUE, (dialogue: DialogueView) => session.update({ dialogue: dialogue.ended ? undefined : dialogue }));
     r.send(MSG_REQUEST_PRIVATE_SYNC);
@@ -267,7 +278,8 @@ renderer.setAnimationLoop((now) => {
   const sprint = input.isHeld("sprint");
   const dir = worldDirection(axis, yaw);
   const speed = sprint ? SPRINT_SPEED : WALK_SPEED;
-  const next = moveWithCollision(pos, { x: dir.x * speed * dt, z: dir.z * speed * dt }, GREYBOX_WALLS);
+  const cars = room?.state.vehicles ? [...room.state.vehicles.values()].map((v) => vehicleBox(v.x, v.z, v.heading)) : [];
+  const next = moveWithCollision(pos, { x: dir.x * speed * dt, z: dir.z * speed * dt }, [...GREYBOX_WALLS, ...cars]);
   pos.x = next.x;
   pos.z = next.z;
   if (dir.x !== 0 || dir.z !== 0) facing = Math.atan2(-dir.x, -dir.z);
@@ -289,6 +301,12 @@ renderer.setAnimationLoop((now) => {
     setStatus("Photo taken.");
   }
 
+  if (import.meta.env.DEV && input.wasPressed("debug")) {
+    const debugOpen = !session.get().debugOpen;
+    session.update({ debugOpen });
+    if (debugOpen && document.pointerLockElement) document.exitPointerLock();
+  }
+
   if (input.wasPressed("toggleBoard")) {
     const boardOpen = !session.get().boardOpen;
     session.update({ boardOpen });
@@ -300,8 +318,8 @@ renderer.setAnimationLoop((now) => {
 
   const people = room?.state.npcs ? npcInteractables(room.state.npcs.values()) : [];
   const spots = room?.state.spots ? spotInteractables(room.state.spots.values()) : [];
-  const cars = room?.state.vehicles ? vehicleInteractables(room.state.vehicles.values()) : [];
-  const target = findInteractable(pos, facing, [...spots, ...people, ...cars]);
+  const carTargets = room?.state.vehicles ? vehicleInteractables(room.state.vehicles.values()) : [];
+  const target = findInteractable(pos, facing, [...spots, ...people, ...carTargets]);
   if (prompt) prompt.textContent = target && !session.get().dialogue ? `[E] ${target.label}` : "";
   const dialogue = session.get().dialogue;
   if (dialogue) {
@@ -323,11 +341,14 @@ renderer.setAnimationLoop((now) => {
   rig = lerpPreset(rig, CAMERA_PRESETS[mode], Math.min(1, dt * 8));
   const flat = Math.cos(pitch) * rig.distance;
   const right = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw));
-  camera.position.set(
-    pos.x + Math.sin(yaw) * flat + right.x * rig.shoulder,
-    rig.height + Math.sin(pitch) * rig.distance,
-    pos.z + Math.cos(yaw) * flat + right.z * rig.shoulder,
-  );
+  const head = { x: pos.x + right.x * rig.shoulder, z: pos.z + right.z * rig.shoulder };
+  const camY = rig.height + Math.sin(pitch) * rig.distance;
+  const desired = { x: head.x + Math.sin(yaw) * flat, z: head.z + Math.cos(yaw) * flat };
+  const clear = clearCameraFraction(head, 1.4, desired, camY, GREYBOX_WALLS);
+  camera.position.set(head.x + (desired.x - head.x) * clear, 1.4 + (camY - 1.4) * clear, head.z + (desired.z - head.z) * clear);
+  // With the camera pushed right up behind the character (back to a wall), fade the character out.
+  const camDist = Math.hypot(camera.position.x - pos.x, camera.position.z - pos.z);
+  playerMat.opacity = Math.min(1, Math.max(0.15, (camDist - 0.6) / 1.2));
   camera.lookAt(pos.x + right.x * rig.shoulder, 1.4, pos.z + right.z * rig.shoulder);
   camera.fov = rig.fov;
   camera.updateProjectionMatrix();

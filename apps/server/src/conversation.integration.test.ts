@@ -3,6 +3,7 @@ import { Bot } from "@vanta/bots";
 import { CASE_001_SUBJECT, CASE_001_WITNESSES, type PersonDef } from "@vanta/content/server";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PROFESSIONS } from "@vanta/content";
+import { TEST_SPAWNS } from "./testSupport";
 import { startGameServer } from "./createServer";
 import { InMemoryCharacterRepository } from "./persistence/CharacterRepository";
 import { CharacterService } from "./systems/characters";
@@ -26,7 +27,7 @@ beforeAll(async () => {
   // Everyone is an ordinary civilian, so background-gated options never appear in this test.
   const civilian = PROFESSIONS.findIndex((p) => p.id === "civilian");
   const characters = new CharacterService(new InMemoryCharacterRepository(), "campaign_test", () => (civilian + 0.5) / PROFESSIONS.length);
-  server = await startGameServer(PORT, { people, characters, caseTimeScale: 100, rng: () => 0, onSubjectEvent: (e) => subjectEvents.push(e) });
+  server = await startGameServer(PORT, { spawnPoints: TEST_SPAWNS, people, characters, caseTimeScale: 100, rng: () => 0, onSubjectEvent: (e) => subjectEvents.push(e) });
 });
 afterAll(async () => {
   await server.gracefullyShutdown(false);

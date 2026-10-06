@@ -4,6 +4,7 @@ import type { BoardCommand, CharacterId, KnownInfo, SubjectInfoItem } from "@van
 import { useState, useSyncExternalStore } from "react";
 import { shortId, type SessionStore, type Teammate } from "../game/session";
 import { BoardPanel } from "./BoardPanel";
+import { DebugPanel } from "./DebugPanel";
 import "./overlay.css";
 
 export interface OverlayProps {
@@ -13,9 +14,10 @@ export interface OverlayProps {
   onChoose: (optionId: string) => void;
   onLeaveTalk: () => void;
   onAbility: (id: string) => void;
+  onDebugAdvance: (sec: number) => void;
 }
 
-export function Overlay({ store, onShare, onBoard, onChoose, onLeaveTalk, onAbility }: OverlayProps) {
+export function Overlay({ store, onShare, onBoard, onChoose, onLeaveTalk, onAbility, onDebugAdvance }: OverlayProps) {
   const view = useSyncExternalStore(store.subscribe, store.get);
   const self = view.profile?.characterId;
   const isIgl = !!self && view.iglCharacterId === self;
@@ -27,6 +29,12 @@ export function Overlay({ store, onShare, onBoard, onChoose, onLeaveTalk, onAbil
     <>
       {view.profile && <PrivatePanel professionId={view.profile.professionId} characterId={view.profile.characterId} />}
       <div className="vt-left">
+        {view.teammates.length > 0 && view.teammates.length < 2 && (
+          <div className="vt-box vt-muted">
+            You are alone here. Nothing will happen until someone else joins: share the invite link.
+            {import.meta.env.DEV && <div className="vt-small">dev: pnpm bots 1 {location.hash.slice(1)}</div>}
+          </div>
+        )}
         {view.iglCharacterId && (
           <div className="vt-box vt-muted">{isIgl ? "DESIGNATION: IGL" : `IGL: ${shortId(view.iglCharacterId)}`}</div>
         )}
@@ -76,6 +84,7 @@ export function Overlay({ store, onShare, onBoard, onChoose, onLeaveTalk, onAbil
           </div>
         )}
       </div>
+      {import.meta.env.DEV && view.debugOpen && <DebugPanel state={view.debugState} onAdvance={onDebugAdvance} />}
       {view.vantaNotice && <div className="vt-vanta">{view.vantaNotice}</div>}
       {view.dialogue && !view.dialogue.ended && (
         <div className="vt-dialogue">

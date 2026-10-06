@@ -3,6 +3,7 @@ import { Bot } from "@vanta/bots";
 import { PROFESSIONS } from "@vanta/content";
 import { CASE_001_DVR_SPOT, CASE_001_WITNESSES, type PersonDef } from "@vanta/content/server";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { TEST_SPAWNS } from "./testSupport";
 import { startGameServer } from "./createServer";
 import { InMemoryCharacterRepository } from "./persistence/CharacterRepository";
 import { CharacterService } from "./systems/characters";
@@ -23,7 +24,7 @@ const people: PersonDef[] = [{ ...barista, standAt: { x: 0, z: 5.5 } }];
 
 let server: Server;
 beforeAll(async () => {
-  server = await startGameServer(PORT, {
+  server = await startGameServer(PORT, { spawnPoints: TEST_SPAWNS,
     characters: new CharacterService(new InMemoryCharacterRepository(), "campaign_test", rng),
     people,
     evidenceSpots: [{ ...CASE_001_DVR_SPOT, position: { x: 3, z: 6.5 } }],

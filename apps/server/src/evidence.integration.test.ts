@@ -2,6 +2,7 @@ import type { Server } from "@colyseus/core";
 import { Bot } from "@vanta/bots";
 import type { EvidenceSpotDef } from "@vanta/content/server";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { TEST_SPAWNS } from "./testSupport";
 import { startGameServer } from "./createServer";
 
 const PORT = 2606;
@@ -19,7 +20,7 @@ const spot: EvidenceSpotDef = {
 
 let server: Server;
 beforeAll(async () => {
-  server = await startGameServer(PORT, { evidenceSpots: [spot] });
+  server = await startGameServer(PORT, { spawnPoints: TEST_SPAWNS, evidenceSpots: [spot] });
 });
 afterAll(async () => {
   await server.gracefullyShutdown(false);

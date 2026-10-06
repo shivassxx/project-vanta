@@ -30,3 +30,4 @@
 .vt-dialogue button { text-align: left; font: 12px monospace; background: #1d2329; color: #d5dde4; border: 1px solid #3a434b; padding: 4px 8px; cursor: pointer; }
 .vt-thumb { width: 192px; height: 108px; display: block; margin: 4px 0; border: 1px solid #3a434b; }
 .vt-vanta { position: fixed; top: 40%; left: 50%; transform: translateX(-50%); color: #e6edf3; font: 20px monospace; letter-spacing: 0.4em; background: rgba(0, 0, 0, 0.75); padding: 16px 28px; pointer-events: none; }
+.vt-debug { position: fixed; right: 8px; bottom: 30px; width: 380px; color: #9fd39f; }

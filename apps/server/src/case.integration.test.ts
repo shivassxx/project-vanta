@@ -1,6 +1,7 @@
 import type { Server } from "@colyseus/core";
 import { Bot } from "@vanta/bots";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { TEST_SPAWNS } from "./testSupport";
 import { startGameServer } from "./createServer";
 
 const PORT = 2605;
@@ -10,7 +11,7 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 let server: Server;
 beforeAll(async () => {
   // 1 real second = 1000 case seconds: the 15-minute delay consequence fires in under a second.
-  server = await startGameServer(PORT, { caseTimeScale: 1000, rng: () => 0 });
+  server = await startGameServer(PORT, { spawnPoints: TEST_SPAWNS, caseTimeScale: 1000, rng: () => 0 });
 });
 afterAll(async () => {
   await server.gracefullyShutdown(false);

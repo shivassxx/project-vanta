@@ -10,4 +10,4 @@
 - [x] M7 Investigation — physical evidence, shared case board, conversations (honest + deceptive witness), vehicle clue with background paths, phone camera photos, CCTV via employee or DVR access
 - [x] M8 Consequences — Subject escape, NPC death (persistent), witnessed-crime police contact, persistent world state, CASE_001 outcomes: subject_fled, case_cold, subject_warned, subject_reported
 - [x] M9 Save/Load — SQLite (better-sqlite3): separate campaign/world and character saves, versioned JSON with migrations, round-trip and server-restart tests
-- [ ] M10 Vertical slice (CASE_001)
+- [ ] M10 Vertical slice (CASE_001) — slice 1 done (tuning, collisions, dev tools, end-to-end walkthrough test); needs human playtests

@@ -37,3 +37,13 @@ describe("worldDirection", () => {
     expect(Math.hypot(d.x, d.z)).toBeCloseTo(1);
   });
 });
+
+describe("vehicleBox", () => {
+  it("blocks walking through a parked car", async () => {
+    const { vehicleBox } = await import("./world");
+    const car = vehicleBox(0, 0, 0);
+    const p = moveWithCollision({ x: -3, z: 0 }, { x: 6, z: 0 }, [car]);
+    expect(p.x).toBeLessThanOrEqual(-0.9 - 0.4 + 1e-6);
+    expect(vehicleBox(0, 0, Math.PI / 2)).toEqual({ minX: -2.1, maxX: 2.1, minZ: -0.9, maxZ: 0.9 });
+  });
+});

@@ -16,7 +16,7 @@ export interface VehicleDef {
 export const CASE_001_VEHICLES: readonly VehicleDef[] = [
   {
     id: "veh_sedan",
-    position: { x: -10.3, z: -6 },
+    position: { x: -10.6, z: -6 },
     heading: 0,
     color: "car_grey",
     model: "Calder Motors Avenir sedan",

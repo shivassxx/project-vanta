@@ -2,6 +2,7 @@ import type { Server } from "@colyseus/core";
 import { Bot } from "@vanta/bots";
 import { CASE_001_SUBJECT_SIGNAL } from "@vanta/content";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { TEST_SPAWNS } from "./testSupport";
 import { startGameServer } from "./createServer";
 
 const PORT = 2603;
@@ -11,7 +12,7 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 let server: Server;
 beforeAll(async () => {
   // rng 0: first connected character becomes IGL; a returning IGL is always restored.
-  server = await startGameServer(PORT, { caseTimeScale: 100, rng: () => 0 });
+  server = await startGameServer(PORT, { spawnPoints: TEST_SPAWNS, caseTimeScale: 100, rng: () => 0 });
 });
 afterAll(async () => {
   await server.gracefullyShutdown(false);
